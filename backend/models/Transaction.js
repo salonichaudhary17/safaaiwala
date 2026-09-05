@@ -1,30 +1,22 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
 
-const transactionSchema = new mongoose.Schema(
-  {
-    collectorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    aggregatorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    materials: [
-      {
-        materialType: { type: String, required: true }, // e.g., 'copper_wire', 'lead_acid_battery'
-        weightKg: { type: Number, required: true },
-        ratePerKg: { type: Number, required: true },
-        subtotal: { type: Number, required: true },
-      },
-    ],
-    totalAmount: { type: Number, required: true },
-    paymentMethod: { type: String, enum: ['CASH', 'UPI'], required: true },
-    handoverCode: { type: String, required: true }, // Verification OTP/Hash
-    status: { type: String, enum: ['PENDING', 'COMPLETED', 'CANCELLED'], default: 'PENDING' },
-    location: {
-      type: { type: String, enum: ['Point'], default: 'Point' },
-      coordinates: { type: [Number], required: true }, // [longitude, latitude]
-    },
-    syncedFromOffline: { type: Boolean, default: false },
-  },
-  { timestamps: true }
-);
+const transactionSchema = new mongoose.Schema({
+  lotId: { type: String, required: true, ref: 'Lot' },
+  collectorId: { type: String, required: true, index: true },
+  recyclerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Recycler', required: true },
+  category: { type: String, required: true },
+  weightKg: { type: Number, required: true },
+  quotedPriceINR: { type: Number, required: true },
+  finalPriceINR: { type: Number, required: true },
+  paymentType: { type: String, enum: ['CASH', 'DIGITAL'], default: 'CASH' },
+  paymentStatus: { type: String, enum: ['PENDING', 'PAID'], default: 'PENDING' },
+  transactionStatus: { type: String, enum: ['INITIATED', 'VERIFIED', 'COMPLETED'], default: 'INITIATED' },
+  verificationTimestamp: Date,
+  digitalHandoverRecord: {
+    handoverRef: String,
+    gps: { lat: Number, lng: Number },
+    photoUrl: String
+  }
+}, { timestamps: true });
 
-transactionSchema.index({ location: '2dsphere' });
-
-export const Transaction = mongoose.model('Transaction', transactionSchema);
+module.exports = mongoose.model('Transaction', transactionSchema);

@@ -1,0 +1,34 @@
+{
+  "fieldStudy": {
+    "location": "Dharavi & Kurla Scrap Hubs, Mumbai",
+    "date": "2026-02-15",
+    "subjects": [
+      {
+        "id": "COL-001",
+        "name": "Ramesh Kumar",
+        "role": "Informal Kabadiwala / Collector",
+        "dailyCollectionKg": 45,
+        "primaryMaterials": ["Cables", "PCBs", "CRTs"],
+        "currentSaleChannel": "Local Aggregator (Middleman)",
+        "painPoints": [
+          "Middlemen deduct 30-40% below fair market value",
+          "No price visibility; relies on verbal quotes",
+          "Forced into hazardous cable burning to separate copper"
+        ]
+      },
+      {
+        "id": "AGG-002",
+        "name": "Suresh Gupta",
+        "role": "Informal Aggregator",
+        "dailyCollectionKg": 300,
+        "primaryMaterials": ["Mixed E-Waste", "LCD Panels", "Batteries"],
+        "currentSaleChannel": "Informal Wholesale Markets",
+        "painPoints": [
+          "Lacks formal EPR compliance documentation",
+          "High cash risk and lack of institutional finance",
+          "Willing to supply authorized recyclers if payment is instant"
+        ]
+      }
+    ]
+  }
+}
