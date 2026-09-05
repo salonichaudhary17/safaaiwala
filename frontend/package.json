@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "dexie": "^3.2.7",
+    "html5-qrcode": "^2.3.8",
     "i18next": "^24.2.3",
     "idb": "^8.0.3",
     "jspdf": "^4.2.1",

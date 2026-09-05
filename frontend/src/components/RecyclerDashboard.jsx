@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Truck, ShieldCheck, Hash, PackageCheck, MapPin, Building, Phone, Filter, Search, CheckCircle2, Award, Clock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Truck, ShieldCheck, Hash, PackageCheck, MapPin, Building, Phone, Filter, Search, CheckCircle2, Award, Clock, QrCode, X } from 'lucide-react';
+import { Html5QrcodeScanner } from 'html5-qrcode';
 import { translations } from '../i18n/translations';
 
 export default function RecyclerDashboard({ lang = 'hi' }) {
@@ -9,6 +10,8 @@ export default function RecyclerDashboard({ lang = 'hi' }) {
   const [cityFilter, setCityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showQrScanner, setShowQrScanner] = useState(false);
+  const [scannedHash, setScannedHash] = useState(null);
 
   // 1. Comprehensive Incoming Batches (Delhi, Mumbai, Bengaluru, Pune, Chennai, etc.)
   const [incomingBatches, setIncomingBatches] = useState([
@@ -216,6 +219,51 @@ export default function RecyclerDashboard({ lang = 'hi' }) {
     );
   };
 
+  useEffect(() => {
+    if (!showQrScanner) return;
+    const scanner = new Html5QrcodeScanner('reader', { fps: 10, qrbox: { width: 250, height: 250 } }, false);
+    
+    scanner.render((text) => {
+      if (text.startsWith('SAFAAIWALA_')) {
+        scanner.clear();
+        setShowQrScanner(false);
+        const actualHash = text.replace('SAFAAIWALA_', '');
+        
+        // Find if we have this hash in our batches, or just add a new record
+        const existingBatch = incomingBatches.find(b => b.batchHash === actualHash);
+        if (existingBatch) {
+          verifyBatch(existingBatch.id);
+          setScannedHash(`Verified Existing Batch: ${existingBatch.id}`);
+        } else {
+          // It's a new offline scan from a collector!
+          const newId = `TXN-${Math.floor(100000 + Math.random() * 900000)}`;
+          const newBatch = {
+            id: newId,
+            origin: 'Local Collector Walk-in',
+            city: 'local',
+            material: 'Scanned via QR Handover',
+            weightKg: 'Dynamic',
+            collector: 'Offline QR Scan',
+            status: 'Verified & Logged',
+            batchHash: actualHash,
+            hazardLevel: 'Unknown',
+            eta: 'Completed',
+            verifiedAt: new Date().toLocaleTimeString('en-IN')
+          };
+          setIncomingBatches(prev => [newBatch, ...prev]);
+          setScannedHash(`Successfully logged new offline receipt: ${actualHash.substring(0, 16)}...`);
+        }
+        setTimeout(() => setScannedHash(null), 5000);
+      }
+    }, (err) => {
+      // ignore
+    });
+
+    return () => {
+      scanner.clear().catch(() => {});
+    };
+  }, [showQrScanner, incomingBatches]);
+
   const filteredBatches = incomingBatches.filter(b => {
     const matchCity = cityFilter === 'all' || b.city === cityFilter;
     const matchStatus = statusFilter === 'all' || b.status === statusFilter;
@@ -265,25 +313,63 @@ export default function RecyclerDashboard({ lang = 'hi' }) {
         </div>
       </div>
 
-      {/* Sub-tab Navigation */}
-      <div className="flex bg-slate-800 p-1 rounded-xl mb-5 max-w-md">
+      {/* Sub-tab Navigation & Actions */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-5 justify-between items-start sm:items-center">
+        <div className="flex bg-slate-800 p-1 rounded-xl w-full sm:max-w-md">
+          <button
+            onClick={() => setActiveSubTab('batches')}
+            className={`flex-1 py-2 rounded-lg font-bold text-xs sm:text-sm transition ${
+              activeSubTab === 'batches' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            {t.allStatus} ({incomingBatches.length})
+          </button>
+          <button
+            onClick={() => setActiveSubTab('directory')}
+            className={`flex-1 py-2 rounded-lg font-bold text-xs sm:text-sm transition ${
+              activeSubTab === 'directory' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            CPCB Directory ({EPR_RECYCLERS.length})
+          </button>
+        </div>
+
         <button
-          onClick={() => setActiveSubTab('batches')}
-          className={`flex-1 py-2 rounded-lg font-bold text-xs sm:text-sm transition ${
-            activeSubTab === 'batches' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
-          }`}
+          onClick={() => setShowQrScanner(true)}
+          className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-slate-900 px-4 py-2.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 shadow-lg transition active:scale-95"
         >
-          {t.allStatus} ({incomingBatches.length})
-        </button>
-        <button
-          onClick={() => setActiveSubTab('directory')}
-          className={`flex-1 py-2 rounded-lg font-bold text-xs sm:text-sm transition ${
-            activeSubTab === 'directory' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          CPCB Recyclers Directory ({EPR_RECYCLERS.length})
+          <QrCode className="w-5 h-5" />
+          Scan Handover Receipt
         </button>
       </div>
+
+      {/* Success Notification */}
+      {scannedHash && (
+        <div className="bg-emerald-500/20 border border-emerald-500/50 text-emerald-400 p-3 rounded-xl mb-4 text-sm font-bold flex items-center justify-center gap-2">
+          <CheckCircle2 className="w-5 h-5" />
+          {scannedHash}
+        </div>
+      )}
+
+      {/* QR Scanner Modal */}
+      {showQrScanner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-sm">
+          <div className="bg-white text-slate-900 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden relative">
+            <div className="bg-emerald-600 text-white p-4 flex justify-between items-center">
+              <h3 className="font-black text-lg">Scan Receipt QR</h3>
+              <button onClick={() => setShowQrScanner(false)} className="p-1 hover:bg-emerald-500 rounded-lg">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-4 bg-slate-100">
+              <div id="reader" className="w-full rounded-xl overflow-hidden shadow-inner"></div>
+              <p className="text-center text-xs text-slate-500 mt-4 font-medium">
+                Point your camera at the Kabadiwala's Digital Handover Receipt to instantly verify the batch.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filter Strip for Batches */}
       {activeSubTab === 'batches' && (
