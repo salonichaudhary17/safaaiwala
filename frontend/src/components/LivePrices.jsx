@@ -1,145 +1,65 @@
-import { useEffect, useMemo, useState } from "react";
-import { io } from "socket.io-client";
-import { TrendingDown, TrendingUp, Minus, Wifi, WifiOff } from "lucide-react";
-import { API_BASE } from "../lib/api";
-import { useApp } from "../context/AppContext";
-import { readPriceSnapshot, savePriceSnapshot } from "../db/offlineDb";
+import React, { useEffect, useState } from 'react';
+import { io } from 'socket.io-client';
+import { TrendingUp, TrendingDown, Minus, RefreshCw } from 'lucide-react';
 
-function TrendIcon({ trend }) {
-  if (trend === "up") return <TrendingUp size={16} />;
-  if (trend === "down") return <TrendingDown size={16} />;
-  return <Minus size={16} />;
-}
-
-export default function LivePrices() {
-  const { collector, online } = useApp();
+export default function LivePrices({ apiBaseUrl }) {
   const [prices, setPrices] = useState([]);
-  const [source, setSource] = useState("loading");
-  const [updatedAt, setUpdatedAt] = useState("");
-
-  const city = collector.location || "Delhi";
+  const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    let socket;
-    let eventSource;
+    // Initial fetch
+    fetch(`${apiBaseUrl}/api/waste/prices`)
+      .then(res => res.json())
+      .then(data => setPrices(data))
+      .catch(err => console.error('Error fetching prices:', err));
 
-    async function loadRest() {
-      try {
-        const response = await fetch(
-          `${API_BASE}/api/waste/prices?city=${encodeURIComponent(city)}`
-        );
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "price load failed");
-        if (cancelled) return;
-        setPrices(data.prices || []);
-        setUpdatedAt(data.generatedAt);
-        setSource("rest");
-        await savePriceSnapshot(city, data.prices || []);
-      } catch {
-        const cached = await readPriceSnapshot(city);
-        if (cancelled) return;
-        if (cached.length) {
-          setPrices(cached.map((row) => row.payload || row));
-          setSource("indexeddb");
-        }
-      }
-    }
+    // Real-time WebSocket setup
+    const socket = io(apiBaseUrl);
+    socket.on('connect', () => setConnected(true));
+    socket.on('price_update', (updatedPrices) => setPrices(updatedPrices));
+    socket.on('disconnect', () => setConnected(false));
 
-    loadRest();
-
-    if (online) {
-      socket = io(API_BASE, {
-        transports: ["websocket", "polling"],
-      });
-      socket.emit("subscribe:prices", city);
-      socket.emit("join", { city });
-      const apply = (payload) => {
-        if (!payload?.prices) return;
-        const filtered = city
-          ? payload.prices.filter(
-              (row) => !row.city || row.city === city || payload.city === "All India"
-            )
-          : payload.prices;
-        const unique = [];
-        const seen = new Set();
-        for (const row of filtered) {
-          if (row.city && row.city !== city && payload.city === "All India") {
-            if (row.city !== city) continue;
-          }
-          const key = row.materialCode;
-          if (seen.has(key)) continue;
-          seen.add(key);
-          unique.push(row);
-        }
-        const next =
-          unique.length > 0
-            ? unique.filter((row) => !row.city || row.city === city)
-            : payload.prices.filter((row) => row.city === city);
-        setPrices(next.length ? next : payload.prices.slice(0, 8));
-        setUpdatedAt(payload.generatedAt);
-        setSource("socket");
-        savePriceSnapshot(city, next.length ? next : payload.prices);
-      };
-      socket.on("price:update", apply);
-      socket.on("aajKaBhaav", apply);
-
-      eventSource = new EventSource(`${API_BASE}/api/waste/prices/stream?city=${encodeURIComponent(city)}`);
-      eventSource.addEventListener("price", (event) => {
-        try {
-          apply(JSON.parse(event.data));
-          setSource((current) => (current === "socket" ? current : "sse"));
-        } catch {
-          /* ignore malformed SSE */
-        }
-      });
-    }
-
-    return () => {
-      cancelled = true;
-      socket?.disconnect();
-      eventSource?.close();
-    };
-  }, [city, online]);
-
-  const rows = useMemo(() => {
-    const unique = new Map();
-    for (const price of prices) {
-      const key = price.materialCode || price.id;
-      if (!unique.has(key)) unique.set(key, price);
-    }
-    return Array.from(unique.values());
-  }, [prices]);
+    return () => socket.disconnect();
+  }, [apiBaseUrl]);
 
   return (
-    <div className="card">
-      <div className="row between">
+    <div className="bg-white p-6 rounded-xl shadow-md border border-slate-200">
+      <div className="flex justify-between items-center mb-4">
         <div>
-          <div className="h2">Aaj Ka Bhaav</div>
-          <div className="muted">{city}</div>
+          <h2 className="text-xl font-bold text-slate-800">Aaj Ka Bhaav (Live Rates)</h2>
+          <p className="text-xs text-slate-500">Dynamic scrap & e-waste market pricing updates</p>
         </div>
-        <span className={`pill ${online ? "pill-teal" : "pill-amber"}`}>
-          {online ? <Wifi size={14} /> : <WifiOff size={14} />}
-          {source}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={`w-2.5 h-2.5 rounded-full ${connected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+          <span className="text-xs font-medium text-slate-600">{connected ? 'Live Sync' : 'Offline'}</span>
+        </div>
       </div>
-      {updatedAt ? (
-        <p className="muted">Updated {new Date(updatedAt).toLocaleTimeString()}</p>
-      ) : null}
-      <div className="price-table">
-        {rows.map((row) => (
-          <div className="price-row" key={row.materialCode || row.id}>
-            <div>
-              <strong>{row.name || row.materialCode}</strong>
-              <div className="muted">{row.label_hi || row.category}</div>
-            </div>
-            <div className={`trend trend-${row.trend || "stable"}`}>
-              <TrendIcon trend={row.trend} />
-              ₹{Number(row.currentRate || row.buyingPricePerKg || 0).toFixed(1)}/kg
-            </div>
-          </div>
-        ))}
-        {!rows.length ? <p className="muted">Waiting for live rates…</p> : null}
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider">
+              <th className="p-3 rounded-l-lg">Material</th>
+              <th className="p-3">Category</th>
+              <th className="p-3">Rate (per Kg)</th>
+              <th className="p-3 rounded-r-lg text-right">Trend</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 text-sm">
+            {prices.map((item, idx) => (
+              <tr key={item.id || idx} className="hover:bg-slate-50 transition">
+                <td className="p-3 font-semibold text-slate-800">{item.material || item.materialId?.name}</td>
+                <td className="p-3 text-slate-500 capitalize">{item.category || item.materialId?.category}</td>
+                <td className="p-3 font-bold text-emerald-700">₹{item.currentRate}</td>
+                <td className="p-3 text-right">
+                  {item.trend === 'up' && <span className="inline-flex items-center text-emerald-600 text-xs font-bold gap-1"><TrendingUp className="w-4 h-4" /> +Up</span>}
+                  {item.trend === 'down' && <span className="inline-flex items-center text-red-500 text-xs font-bold gap-1"><TrendingDown className="w-4 h-4" /> -Down</span>}
+                  {item.trend === 'stable' && <span className="inline-flex items-center text-slate-400 text-xs font-bold gap-1"><Minus className="w-4 h-4" /> Stable</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

@@ -1,319 +1,171 @@
-import { useRef, useState } from "react";
-import { Camera, ImagePlus, WifiOff, ScanLine } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
-import { useApp } from "../context/AppContext";
-import { queueClassification } from "../db/offlineDb";
+import React, { useRef, useState } from 'react';
+import { Camera, RefreshCw, AlertTriangle, CheckCircle, WifiOff } from 'lucide-react';
 
-const CATALOG = [
-  {
-    code: "battery",
-    category: "Batteries",
-    itemType: "Lithium / lead-acid battery",
-    recyclability: "specialized",
-    estimatedValuePerKg: 60,
-    hazardLevel: "CRITICAL",
-    disposalTips:
-      "Do not puncture, crush, or expose to fire. Store separately from other scrap.",
-  },
-  {
-    code: "pcb",
-    category: "PCB",
-    itemType: "Printed circuit board",
-    recyclability: "high",
-    estimatedValuePerKg: 185,
-    hazardLevel: "HIGH",
-    disposalTips:
-      "Never burn or acid-wash boards. Send whole boards to an authorized recycler.",
-  },
-  {
-    code: "cable",
-    category: "Cables",
-    itemType: "Insulated copper cable",
-    recyclability: "high",
-    estimatedValuePerKg: 140,
-    hazardLevel: "HIGH",
-    disposalTips: "Do not burn cables to strip insulation.",
-  },
-  {
-    code: "lcd",
-    category: "LCD panel",
-    itemType: "LCD/LED panel",
-    recyclability: "medium",
-    estimatedValuePerKg: 30,
-    hazardLevel: "MEDIUM",
-    disposalTips: "Handle with care to avoid backlight breakage on older panels.",
-  },
-  {
-    code: "crt",
-    category: "CRT",
-    itemType: "CRT monitor/TV",
-    recyclability: "specialized",
-    estimatedValuePerKg: 8,
-    hazardLevel: "HIGH",
-    disposalTips: "Contains leaded glass. Do not break the tube.",
-  },
-  {
-    code: "motor",
-    category: "Motors/magnets",
-    itemType: "Motor and magnet assembly",
-    recyclability: "high",
-    estimatedValuePerKg: 210,
-    hazardLevel: "LOW",
-    disposalTips: "Keep magnets intact for better recycler pricing.",
-  },
-  {
-    code: "plastic",
-    category: "Mixed plastics",
-    itemType: "Device housing plastic",
-    recyclability: "medium",
-    estimatedValuePerKg: 18,
-    hazardLevel: "LOW",
-    disposalTips: "Sort by plastic type where possible for a better rate.",
-  },
-];
+export default function Scanner({ apiBaseUrl, onAnalysisComplete }) {
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [analysis, setAnalysis] = useState(null);
+  const [isOfflineMode, setIsOfflineMode] = useState(!navigator.onLine);
 
-function classifyFromCanvas(canvas) {
-  const context = canvas.getContext("2d", { willReadFrequently: true });
-  const { width, height } = canvas;
-  const sample = context.getImageData(0, 0, width, height).data;
-
-  let r = 0;
-  let g = 0;
-  let b = 0;
-  let count = 0;
-  let dark = 0;
-  let greenish = 0;
-  let yellowish = 0;
-  let metallic = 0;
-  let warm = 0;
-
-  for (let i = 0; i < sample.length; i += 16) {
-    const red = sample[i];
-    const green = sample[i + 1];
-    const blue = sample[i + 2];
-    r += red;
-    g += green;
-    b += blue;
-    count += 1;
-    const luma = (red * 299 + green * 587 + blue * 114) / 1000;
-    if (luma < 70) dark += 1;
-    if (green > red + 18 && green > blue + 10) greenish += 1;
-    if (red > 140 && green > 110 && blue < 90) yellowish += 1;
-    if (Math.abs(red - green) < 18 && Math.abs(green - blue) < 18 && luma > 90 && luma < 190) {
-      metallic += 1;
-    }
-    if (red > 90 && red > green && red > blue) warm += 1;
-  }
-
-  const avgR = r / count;
-  const avgG = g / count;
-  const avgB = b / count;
-  const darkRatio = dark / count;
-  const greenRatio = greenish / count;
-  const yellowRatio = yellowish / count;
-  const metalRatio = metallic / count;
-  const warmRatio = warm / count;
-
-  let code = "plastic";
-  if (darkRatio > 0.45 && greenRatio > 0.12) code = "pcb";
-  else if (yellowRatio > 0.16 || (warmRatio > 0.28 && avgR > 140)) code = "battery";
-  else if (metalRatio > 0.22 && avgG > 90 && avgB > 90) code = "cable";
-  else if (darkRatio > 0.38 && avgB > avgR + 8) code = "lcd";
-  else if (avgR > 90 && avgG > 70 && avgB < 70 && darkRatio < 0.35) code = "crt";
-  else if (metalRatio > 0.18 && darkRatio < 0.3) code = "motor";
-
-  const catalog = CATALOG.find((item) => item.code === code) || CATALOG[6];
-  return {
-    ...catalog,
-    materialCode: catalog.code,
-    confidence: 0.62,
-    source: "offline-canvas-histogram",
-    histogram: {
-      avgR: Math.round(avgR),
-      avgG: Math.round(avgG),
-      avgB: Math.round(avgB),
-      darkRatio: Number(darkRatio.toFixed(3)),
-    },
-  };
-}
-
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
-
-function loadImage(src) {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = reject;
-    image.src = src;
-  });
-}
-
-async function rasterize(dataUrl) {
-  const image = await loadImage(dataUrl);
-  const canvas = document.createElement("canvas");
-  const max = 320;
-  const scale = Math.min(1, max / Math.max(image.width, image.height));
-  canvas.width = Math.max(32, Math.round(image.width * scale));
-  canvas.height = Math.max(32, Math.round(image.height * scale));
-  const context = canvas.getContext("2d");
-  context.drawImage(image, 0, 0, canvas.width, canvas.height);
-  return canvas;
-}
-
-export default function Scanner({ onClassified }) {
-  const { authFetch } = useAuth();
-  const { online, collector } = useApp();
-  const [preview, setPreview] = useState("");
-  const [result, setResult] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [mode, setMode] = useState(online ? "online" : "offline");
-  const cameraRef = useRef(null);
-
-  async function analyse(dataUrl, mimeType) {
-    setBusy(true);
-    setError("");
-    setPreview(dataUrl);
-
-    const canvas = await rasterize(dataUrl);
-    const offlineResult = classifyFromCanvas(canvas);
-
-    if (!online) {
-      setMode("offline");
-      setResult(offlineResult);
-      await queueClassification(offlineResult);
-      onClassified?.(offlineResult, dataUrl);
-      setBusy(false);
-      return;
-    }
-
+  const startCamera = async () => {
     try {
-      const response = await authFetch("/api/waste/classify", {
-        method: "POST",
-        body: JSON.stringify({
-          imageBase64: dataUrl,
-          mimeType: mimeType || "image/jpeg",
-          city: collector.location,
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok && !data.category) {
-        throw new Error(data.error || "classify failed");
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        setIsStreaming(true);
       }
-      const merged = {
-        ...offlineResult,
-        ...data,
-        materialCode: data.materialCode || offlineResult.materialCode,
-        source: data.source || "gemini-1.5-flash",
-      };
-      setMode(data.fallback ? "fallback" : "online");
-      setResult(merged);
-      await queueClassification(merged);
-      onClassified?.(merged, dataUrl);
     } catch (err) {
-      setMode("offline");
-      setError(err.message);
-      setResult(offlineResult);
-      await queueClassification(offlineResult);
-      onClassified?.(offlineResult, dataUrl);
-    } finally {
-      setBusy(false);
+      alert('Camera access denied or unavailable.');
     }
-  }
+  };
 
-  async function onFile(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const dataUrl = await fileToDataUrl(file);
-    await analyse(dataUrl, file.type);
-  }
+  const captureAndAnalyze = async () => {
+    if (!canvasRef.current || !videoRef.current) return;
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const base64Image = canvas.toDataURL('image/jpeg');
+    setLoading(true);
+
+    if (navigator.onLine) {
+      try {
+        const res = await fetch(`${apiBaseUrl}/api/waste/classify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64: base64Image })
+        });
+        const data = await res.json();
+        setAnalysis(data);
+        if (onAnalysisComplete) onAnalysisComplete(data);
+      } catch (err) {
+        runOfflineFallbackAnalysis(ctx, canvas);
+      }
+    } else {
+      runOfflineFallbackAnalysis(ctx, canvas);
+    }
+    setLoading(false);
+  };
+
+  // Client-side Canvas Fallback Image Pixel Analysis
+  const runOfflineFallbackAnalysis = (ctx, canvas) => {
+    setIsOfflineMode(true);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    let greenCount = 0;
+    let metallicCount = 0;
+
+    for (let i = 0; i < data.length; i += 16) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+
+      // Detect Green (Printed Circuit Boards)
+      if (g > r + 20 && g > b + 20) greenCount++;
+      // Detect Metallic Shine (High RGB intensity with low variance)
+      if (r > 150 && g > 150 && b > 150 && Math.abs(r - g) < 20) metallicCount++;
+    }
+
+    const isEwastePCB = greenCount > (data.length / 16) * 0.15;
+    const isMetal = metallicCount > (data.length / 16) * 0.2;
+
+    const fallbackResult = isEwastePCB ? {
+      category: 'e-waste',
+      itemType: 'Circuit Board (Offline Detected)',
+      recyclability: 'High',
+      estimatedValuePerKg: 160,
+      hazardLevel: 'Moderate',
+      disposalTips: 'Contains recoverable gold & copper. Deliver to licensed recycler.'
+    } : isMetal ? {
+      category: 'metal',
+      itemType: 'Metallic Scrap (Offline Detected)',
+      recyclability: 'High',
+      estimatedValuePerKg: 120,
+      hazardLevel: 'Low',
+      disposalTips: 'Clean scrap iron/aluminium. Ready for direct smelting.'
+    } : {
+      category: 'plastic',
+      itemType: 'Mixed Polymer Plastic (Offline Detected)',
+      recyclability: 'Medium',
+      estimatedValuePerKg: 25,
+      hazardLevel: 'Low',
+      disposalTips: 'Separate by resin code before recycling.'
+    };
+
+    setAnalysis(fallbackResult);
+    if (onAnalysisComplete) onAnalysisComplete(fallbackResult);
+  };
 
   return (
-    <div className="stack">
-      <div>
-        <div className="h1">E-waste scanner</div>
-        <p className="muted">
-          Photograph scrap for Gemini classification. Offline, the app uses a
-          Canvas colour-histogram fallback.
-        </p>
+    <div className="bg-white p-6 rounded-xl shadow-md border border-slate-200">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+          <Camera className="text-emerald-600" /> Vision AI Waste Classifier
+        </h2>
+        {isOfflineMode && (
+          <span className="bg-amber-100 text-amber-800 text-xs px-3 py-1 rounded-full flex items-center gap-1 font-medium">
+            <WifiOff className="w-3 h-3" /> Offline Canvas Fallback Active
+          </span>
+        )}
       </div>
 
-      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-        <span className={`pill ${online ? "pill-teal" : "pill-amber"}`}>
-          {online ? "Online vision" : "Offline canvas"}
-        </span>
-        <span className="pill pill-amber">{mode}</span>
+      <div className="relative bg-slate-900 rounded-lg overflow-hidden aspect-video flex items-center justify-center mb-4">
+        <video ref={videoRef} autoPlay playsInline className={`w-full h-full object-cover ${!isStreaming && 'hidden'}`} />
+        <canvas ref={canvasRef} className="hidden" />
+
+        {!isStreaming && (
+          <button onClick={startCamera} className="bg-emerald-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-emerald-700 flex items-center gap-2">
+            <Camera /> Start Camera
+          </button>
+        )}
       </div>
 
-      <label className="btn btn-primary btn-block">
-        <Camera size={18} />
-        Capture or upload photo
-        <input
-          ref={cameraRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={onFile}
-          hidden
-        />
-      </label>
-
-      <button
-        type="button"
-        className="btn btn-secondary btn-block"
-        onClick={() => cameraRef.current?.click()}
-      >
-        <ImagePlus size={18} />
-        Choose from gallery
-      </button>
-
-      {preview ? (
-        <img src={preview} alt="Selected scrap" className="scan-preview" />
-      ) : (
-        <div className="scan-placeholder">
-          <ScanLine size={36} />
-          <div>No photo yet</div>
-        </div>
+      {isStreaming && (
+        <button
+          onClick={captureAndAnalyze}
+          disabled={loading}
+          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-lg font-bold transition flex items-center justify-center gap-2 mb-6"
+        >
+          {loading ? <RefreshCw className="animate-spin" /> : <Camera />}
+          {loading ? 'Analyzing Material...' : 'Scan & Identify Item'}
+        </button>
       )}
 
-      {busy ? <p className="muted">Analysing image…</p> : null}
-      {error ? (
-        <p className="muted">
-          <WifiOff size={14} /> Vision API failed — used local histogram. {error}
-        </p>
-      ) : null}
-
-      {result ? (
-        <div className="card">
-          <div className="h2">{result.itemType}</div>
-          <div className="stack" style={{ gap: 6 }}>
-            <div className="row between">
-              <span>Category</span>
-              <strong>{result.category}</strong>
+      {analysis && (
+        <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+          <div className="flex justify-between items-start mb-2">
+            <div>
+              <span className="text-xs uppercase font-bold tracking-wider text-emerald-600">{analysis.category}</span>
+              <h4 className="text-lg font-bold text-slate-800">{analysis.itemType}</h4>
             </div>
-            <div className="row between">
-              <span>Recyclability</span>
-              <strong>{result.recyclability}</strong>
-            </div>
-            <div className="row between">
-              <span>Est. value</span>
-              <strong>₹{result.estimatedValuePerKg}/kg</strong>
-            </div>
-            <div className="row between">
-              <span>Hazard</span>
-              <span className="pill pill-danger">{result.hazardLevel}</span>
-            </div>
-            <p className="muted">{result.disposalTips}</p>
+            <span className="text-emerald-700 font-extrabold text-lg">
+              ₹{analysis.estimatedValuePerKg} / kg
+            </span>
           </div>
+
+          <div className="grid grid-cols-2 gap-2 text-sm my-3">
+            <div className="bg-white p-2 rounded border">
+              <span className="text-slate-500 block text-xs">Recyclability</span>
+              <span className="font-semibold text-slate-700">{analysis.recyclability}</span>
+            </div>
+            <div className="bg-white p-2 rounded border">
+              <span className="text-slate-500 block text-xs">Hazard Level</span>
+              <span className="font-semibold text-slate-700">{analysis.hazardLevel}</span>
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-600 bg-emerald-50 p-2 rounded border border-emerald-100 flex items-center gap-1">
+            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+            {analysis.disposalTips}
+          </p>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }

@@ -9,10 +9,12 @@
     "dev": "node --watch server.js"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
     "express": "^4.22.2",
-    "mongoose": "^8.24.4"
+    "mongoose": "^8.24.4",
+    "socket.io": "^4.8.3"
   },
   "engines": {
     "node": ">=20"

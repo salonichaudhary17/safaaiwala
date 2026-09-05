@@ -1,141 +1,64 @@
-import { useEffect, useRef, useState } from "react";
-import QRCode from "qrcode";
-import { Download, Printer, X } from "lucide-react";
+import React from 'react';
+import { X, Printer, Download, CheckCircle2 } from 'lucide-react';
 
-export default function ReceiptModal({ receipt, onClose }) {
-  const [qrUrl, setQrUrl] = useState("");
-  const printRef = useRef(null);
+export default function ReceiptModal({ transaction, onClose }) {
+  if (!transaction) return null;
 
-  useEffect(() => {
-    if (!receipt?.dynamicQrCode && !receipt?.transactionId) {
-      setQrUrl("");
-      return;
-    }
-    const payload =
-      typeof receipt.dynamicQrCode === "string" && receipt.dynamicQrCode
-        ? receipt.dynamicQrCode
-        : JSON.stringify({
-            platform: "safaaiwala",
-            transactionId: receipt.transactionId,
-            hash: receipt.referenceHash,
-          });
-
-    QRCode.toDataURL(payload, {
-      width: 240,
-      margin: 1,
-      color: { dark: "#085041", light: "#ffffff" },
-    }).then(setQrUrl);
-  }, [receipt]);
-
-  if (!receipt) return null;
-
-  const items = receipt.items || [];
-  const recyclerName =
-    receipt.recycler?.name || receipt.recycler?.location || "Authorized recycler";
-
-  function printReceipt() {
-    const node = printRef.current;
-    if (!node) return;
-    const popup = window.open("", "safaaiwala-receipt", "width=420,height=720");
-    if (!popup) {
-      window.print();
-      return;
-    }
-    popup.document.write(`<!doctype html><html><head><title>${receipt.transactionId}</title>
-      <style>
-        body { font-family: sans-serif; padding: 16px; color: #1f2a24; }
-        h1 { font-size: 18px; }
-        table { width: 100%; border-collapse: collapse; }
-        td, th { text-align: left; padding: 6px 0; border-bottom: 1px solid #ddd; }
-        img { width: 160px; }
-      </style></head><body>${node.innerHTML}</body></html>`);
-    popup.document.close();
-    popup.focus();
-    popup.print();
-  }
-
-  function downloadReceipt() {
-    const lines = [
-      "Safaaiwala Digital Receipt",
-      `Transaction: ${receipt.transactionId}`,
-      `Status: ${receipt.status}`,
-      `Recycler: ${recyclerName}`,
-      `Collector: ${receipt.collectorId}`,
-      "",
-      "Items:",
-      ...items.map(
-        (item) =>
-          `- ${item.itemType || item.materialCode}: ${item.weightKg} kg x ₹${item.ratePerKg} = ₹${item.amount}`
-      ),
-      "",
-      `Subtotal: ₹${receipt.subtotal}`,
-      `Tax / environmental charge: ₹${receipt.taxAmount}`,
-      `Total: ₹${receipt.totalAmount}`,
-      `Impact score: ${receipt.environmentalImpactScore}/100`,
-      `Hash: ${receipt.referenceHash}`,
-    ];
-    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${receipt.transactionId}.txt`;
-    link.click();
-    URL.revokeObjectURL(url);
-  }
+  const handlePrint = () => {
+    window.print();
+  };
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true">
-      <div className="modal-card">
-        <div className="row between">
-          <div className="h2">Digital receipt</div>
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
-            <X size={16} />
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200">
+        <div className="flex justify-between items-center pb-4 border-b">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="text-emerald-600 w-6 h-6" />
+            <h3 className="font-bold text-lg text-slate-800">Safaaiwala Receipt</h3>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-full hover:bg-slate-100">
+            <X className="w-5 h-5 text-slate-500" />
           </button>
         </div>
-        <div ref={printRef} className="receipt-body">
-          <h1>Safaaiwala</h1>
-          <p>Waste & e-waste handover invoice</p>
-          <p>
-            <strong>{receipt.transactionId}</strong>
-          </p>
-          <p>Recycler: {recyclerName}</p>
-          <p>Collector: {receipt.collectorId}</p>
-          <p>Status: {receipt.status}</p>
-          <table>
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th>Kg</th>
-                <th>₹</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item, index) => (
-                <tr key={`${item.materialCode}-${index}`}>
-                  <td>{item.itemType || item.materialCode}</td>
-                  <td>{item.weightKg}</td>
-                  <td>{item.amount}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p>Subtotal: ₹{receipt.subtotal}</p>
-          <p>Tax / env. charge: ₹{receipt.taxAmount}</p>
-          <p>
-            <strong>Total: ₹{receipt.totalAmount}</strong>
-          </p>
-          <p>Environmental impact score: {receipt.environmentalImpactScore}/100</p>
-          {qrUrl ? <img src={qrUrl} alt="Transaction QR code" /> : null}
-          <p>Hash {String(receipt.referenceHash || "").slice(0, 24)}…</p>
+
+        <div className="py-4 space-y-4">
+          <div className="flex justify-between text-xs text-slate-500 font-mono">
+            <span>TXN ID: {transaction._id || 'TXN-4910293'}</span>
+            <span>{new Date().toLocaleDateString('en-IN')}</span>
+          </div>
+
+          <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+            <span className="text-xs text-slate-400 uppercase font-bold block mb-2">Itemized Breakdown</span>
+            {transaction.itemsList?.map((item, idx) => (
+              <div key={idx} className="flex justify-between text-sm py-1 border-b border-slate-200/50 last:border-0">
+                <span className="text-slate-700">{item.materialName} ({item.weightKg} kg)</span>
+                <span className="font-semibold text-slate-800">₹{item.subtotal}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-100 flex justify-between items-center">
+            <div>
+              <span className="text-xs text-emerald-700 font-bold block">Environmental Impact Score</span>
+              <span className="text-xs text-emerald-600">Saved ~{Math.round((transaction.totalAmount || 100) * 0.4)}kg CO2e emissions</span>
+            </div>
+            <span className="text-xl font-black text-emerald-700">₹{transaction.totalAmount}</span>
+          </div>
+
+          {transaction.dynamicQrCode && (
+            <div className="flex flex-col items-center justify-center pt-2">
+              <img src={transaction.dynamicQrCode} alt="Dynamic Verification QR Code" className="w-32 h-32 border p-1 rounded-lg" />
+              <span className="text-[10px] text-slate-400 mt-1">Scan to verify custody chain on-chain</span>
+            </div>
+          )}
         </div>
-        <div className="row">
-          <button type="button" className="btn btn-primary" onClick={printReceipt}>
-            <Printer size={16} />
-            Print
+
+        <div className="flex gap-2 pt-4 border-t">
+          <button onClick={handlePrint} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 rounded-lg flex items-center justify-center gap-2 text-sm">
+            <Printer className="w-4 h-4" /> Print
           </button>
-          <button type="button" className="btn btn-secondary" onClick={downloadReceipt}>
-            <Download size={16} />
-            Download
+          <button onClick={onClose} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 text-sm">
+            <Download className="w-4 h-4" /> Done
           </button>
         </div>
       </div>
