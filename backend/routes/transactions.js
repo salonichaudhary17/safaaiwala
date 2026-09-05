@@ -1,57 +1,274 @@
 const express = require("express");
 const crypto = require("crypto");
-const { load, save } = require("../utils/db");
+
+const Transaction = require("../models/Transaction");
+const Lot = require("../models/Lot");
 
 const router = express.Router();
 
-// GET /api/transactions?collectorId=c1
-router.get("/", (req, res) => {
-  const { collectorId } = req.query;
-  let txns = load("transactions");
-  if (collectorId) txns = txns.filter((t) => t.collector_id === collectorId);
-  res.json(txns);
-});
+function createReferenceHash(data) {
+  return crypto
+    .createHash("sha256")
+    .update(
+      [
+        data.transactionId,
+        data.lotId,
+        data.collectorId,
+        data.materialCode,
+        data.weightKg,
+        data.finalPriceINR,
+        data.recyclerId,
+      ].join("|")
+    )
+    .digest("hex");
+}
 
-// POST /api/transactions - confirm a handover to a recycler
-// body: { collectorId, materialId, weightKg, finalPrice, recyclerId, lat, lng }
-router.post("/", (req, res) => {
-  const { collectorId, materialId, weightKg, finalPrice, recyclerId, lat, lng } = req.body;
+function validateTransactionBody(body) {
+  const required = [
+    "clientTransactionId",
+    "lotId",
+    "collectorId",
+    "materialCode",
+    "weightKg",
+    "quotedPriceINR",
+    "finalPriceINR",
+    "recyclerId",
+  ];
 
-  if (!collectorId || !materialId || !weightKg || !finalPrice || !recyclerId) {
-    return res.status(400).json({
-      error: "collectorId, materialId, weightKg, finalPrice, recyclerId are required",
+  return required.filter(
+    (field) =>
+      body[field] === undefined ||
+      body[field] === null ||
+      body[field] === ""
+  );
+}
+
+router.get("/", async (req, res) => {
+  try {
+    const query = {};
+
+    if (req.query.collectorId) {
+      query.collectorId =
+        req.query.collectorId;
+    }
+
+    const transactions =
+      await Transaction.find(query)
+        .sort({ createdAt: -1 })
+        .limit(200)
+        .populate("recyclerId", "name")
+        .lean();
+
+    res.json(transactions);
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      error: "Unable to fetch transactions",
     });
   }
-
-  const timestamp = new Date().toISOString();
-  const lotId = `lot_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-
-  // Verifiable handover reference: hash of the immutable transaction facts.
-  // Swap-in note: for a stronger guarantee this hash can be anchored to a
-  // lightweight ledger or notarized externally; the hash itself is already
-  // enough to prove the record wasn't altered after the fact.
-  const payload = `${lotId}|${collectorId}|${materialId}|${weightKg}|${finalPrice}|${recyclerId}|${timestamp}`;
-  const referenceHash = crypto.createHash("sha256").update(payload).digest("hex").slice(0, 16);
-
-  const transaction = {
-    lot_id: lotId,
-    collector_id: collectorId,
-    material_id: materialId,
-    weight_kg: weightKg,
-    final_price: finalPrice,
-    recycler_id: recyclerId,
-    lat: lat ?? null,
-    lng: lng ?? null,
-    timestamp,
-    reference_hash: referenceHash,
-    status: "completed",
-  };
-
-  const transactions = load("transactions");
-  transactions.push(transaction);
-  save("transactions", transactions);
-
-  res.status(201).json(transaction);
 });
+
+router.post("/", async (req, res) => {
+  return createTransaction(req, res, "ONLINE");
+});
+
+router.post("/sync", async (req, res) => {
+  return createTransaction(req, res, "OFFLINE");
+});
+
+async function createTransaction(
+  req,
+  res,
+  syncSource
+) {
+  try {
+    const missing =
+      validateTransactionBody(req.body);
+
+    if (missing.length > 0) {
+      return res.status(400).json({
+        error: `Missing fields: ${missing.join(
+          ", "
+        )}`,
+      });
+    }
+
+    const {
+      clientTransactionId,
+      lotId,
+      collectorId,
+      materialCode,
+      weightKg,
+      quotedPriceINR,
+      finalPriceINR,
+      recyclerId,
+      paymentType,
+      collectionLat,
+      collectionLng,
+      handoverLat,
+      handoverLng,
+    } = req.body;
+
+    const numericWeight =
+      Number(weightKg);
+
+    const quoted =
+      Number(quotedPriceINR);
+
+    const finalPrice =
+      Number(finalPriceINR);
+
+    if (
+      !Number.isFinite(numericWeight) ||
+      numericWeight <= 0
+    ) {
+      return res.status(400).json({
+        error: "Invalid weightKg",
+      });
+    }
+
+    if (
+      !Number.isFinite(quoted) ||
+      quoted < 0
+    ) {
+      return res.status(400).json({
+        error: "Invalid quotedPriceINR",
+      });
+    }
+
+    if (
+      !Number.isFinite(finalPrice) ||
+      finalPrice < 0
+    ) {
+      return res.status(400).json({
+        error: "Invalid finalPriceINR",
+      });
+    }
+
+    const existing =
+      await Transaction.findOne({
+        clientTransactionId,
+      });
+
+    if (existing) {
+      return res.status(200).json({
+        duplicate: true,
+        queued: false,
+        transaction: existing,
+      });
+    }
+
+    const transactionId =
+      `TX-${Date.now()}-${crypto
+        .randomBytes(4)
+        .toString("hex")
+        .toUpperCase()}`;
+
+    const referenceHash =
+      createReferenceHash({
+        transactionId,
+        lotId,
+        collectorId,
+        materialCode,
+        weightKg: numericWeight,
+        finalPriceINR: finalPrice,
+        recyclerId,
+      });
+
+    const transaction =
+      await Transaction.create({
+        transactionId,
+        clientTransactionId,
+        lotId,
+        collectorId,
+        recyclerId,
+        materialCode,
+        weightKg: numericWeight,
+        quotedPriceINR: quoted,
+        finalPriceINR: finalPrice,
+        paymentType:
+          paymentType === "DIGITAL"
+            ? "DIGITAL"
+            : "CASH",
+        paymentStatus: "PAID",
+        transactionStatus: "COMPLETED",
+        referenceHash,
+        syncSource,
+        collectionLocation:
+          Number.isFinite(
+            Number(collectionLat)
+          ) &&
+          Number.isFinite(
+            Number(collectionLng)
+          )
+            ? {
+                type: "Point",
+                coordinates: [
+                  Number(collectionLng),
+                  Number(collectionLat),
+                ],
+              }
+            : undefined,
+        handoverLocation:
+          Number.isFinite(
+            Number(handoverLat)
+          ) &&
+          Number.isFinite(
+            Number(handoverLng)
+          )
+            ? {
+                type: "Point",
+                coordinates: [
+                  Number(handoverLng),
+                  Number(handoverLat),
+                ],
+              }
+            : undefined,
+        verificationTimestamp:
+          new Date(),
+        completedAt:
+          new Date(),
+      });
+
+    await Lot.updateOne(
+      { lotId },
+      {
+        $set: {
+          status: "COMPLETED",
+          selectedRecyclerId: recyclerId,
+        },
+      }
+    );
+
+    return res.status(201).json({
+      ...transaction.toObject(),
+      queued: false,
+    });
+  } catch (error) {
+    console.error(
+      "Transaction creation error:",
+      error
+    );
+
+    if (error.code === 11000) {
+      const existing =
+        await Transaction.findOne({
+          clientTransactionId:
+            req.body.clientTransactionId,
+        });
+
+      return res.status(200).json({
+        duplicate: true,
+        queued: false,
+        transaction: existing,
+      });
+    }
+
+    return res.status(500).json({
+      error: "Unable to create transaction",
+    });
+  }
+}
 
 module.exports = router;
