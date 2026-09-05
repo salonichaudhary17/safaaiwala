@@ -1,44 +1,40 @@
-import { Server } from 'socket.io';
+const { Server } = require("socket.io");
+const { setIO, getIO } = require("../utils/realtime");
 
-let io;
-
-export const initWebSocket = (server) => {
-  io = new Server(server, {
+function initWebSocket(server, corsOrigin) {
+  const io = new Server(server, {
     cors: {
-      origin: '*',
-      methods: ['GET', 'POST'],
+      origin: corsOrigin || "*",
+      methods: ["GET", "POST"],
     },
   });
 
-  io.on('connection', (socket) => {
-    // Join a room based on the user ID (Collector or Aggregator)
-    socket.on('join_room', (userId) => {
-      socket.join(userId);
+  setIO(io);
+
+  io.on("connection", (socket) => {
+    socket.on("join_room", (userId) => {
+      if (userId) socket.join(String(userId));
     });
 
-    // Notify aggregator of incoming transaction
-    socket.on('initiate_handover', (data) => {
-      const { aggregatorId, transactionData } = data;
-      io.to(aggregatorId).emit('handover_requested', transactionData);
+    socket.on("initiate_handover", (data) => {
+      const { aggregatorId, transactionData } = data || {};
+      if (aggregatorId) {
+        io.to(aggregatorId).emit("handover_requested", transactionData);
+      }
     });
 
-    // Notify collector when aggregator completes payment/verification
-    socket.on('complete_handover', (data) => {
-      const { collectorId, transactionId, status } = data;
-      io.to(collectorId).emit('handover_completed', { transactionId, status });
-    });
-
-    socket.on('disconnect', () => {
-      // Automatic cleanup on disconnect
+    socket.on("complete_handover", (data) => {
+      const { collectorId, transactionId, status } = data || {};
+      if (collectorId) {
+        io.to(collectorId).emit("handover_completed", { transactionId, status });
+      }
     });
   });
 
   return io;
-};
+}
 
-export const getIO = () => {
-  if (!io) {
-    throw new Error('Socket.io not initialized!');
-  }
-  return io;
+module.exports = {
+  initWebSocket,
+  getIO,
 };
