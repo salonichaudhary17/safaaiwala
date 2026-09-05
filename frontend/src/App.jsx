@@ -18,8 +18,20 @@ export default function App() {
   const [lang, setLang] = useState(() => localStorage.getItem('safaaiwala_lang') || 'hi');
   const [pendingCount, setPendingCount] = useState(0);
   const [syncing, setSyncing] = useState(false);
+  const [userRole, setUserRole] = useState(() => localStorage.getItem('safaaiwala_role') || null); // null, 'collector', 'recycler'
 
   const t = translations[lang] || translations.hi;
+
+  const handleLogin = (role) => {
+    setUserRole(role);
+    localStorage.setItem('safaaiwala_role', role);
+    setActiveTab(role === 'recycler' ? 'recycler' : 'scanner');
+  };
+
+  const handleLogout = () => {
+    setUserRole(null);
+    localStorage.removeItem('safaaiwala_role');
+  };
 
   const handleLangChange = (newLang) => {
     setLang(newLang);
@@ -69,7 +81,21 @@ export default function App() {
       const saved = localStorage.getItem('safaaiwala_offline_lots');
       if (saved) {
         const parsed = JSON.parse(saved);
-        const updated = parsed.map(item => ({ ...item, synced: true }));
+        const updated = await Promise.all(parsed.map(async (item) => {
+          if (!item.synced) {
+            try {
+              const res = await fetch(`${API_BASE_URL}/api/transactions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item)
+              });
+              if (res.ok) return { ...item, synced: true };
+            } catch (e) {
+              console.warn('Network sync error for offline lot', e);
+            }
+          }
+          return item;
+        }));
         localStorage.setItem('safaaiwala_offline_lots', JSON.stringify(updated));
       }
       setPendingCount(0);
@@ -210,6 +236,16 @@ export default function App() {
                 {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
                 <span>{isOnline ? t.online : t.offlineMode}</span>
               </div>
+
+              {/* Logout Button */}
+              {userRole && (
+                <button
+                  onClick={handleLogout}
+                  className="bg-slate-800 text-white px-3 py-1.5 rounded-full text-xs font-bold border border-slate-700 hover:bg-slate-700"
+                >
+                  Logout
+                </button>
+              )}
             </div>
           </div>
 
@@ -230,72 +266,107 @@ export default function App() {
 
         {/* Main Content */}
         <main className="max-w-6xl w-full mx-auto px-4 py-6 flex-1">
-          {/* Voice Assistant Module */}
-          <VoiceAssistant
-            lang={lang}
-            setLang={handleLangChange}
-            onNavigate={(tab) => setActiveTab(tab)}
-            onTriggerScan={() => setActiveTab('scanner')}
-          />
-
-          {/* Navigation Tabs */}
-          <div className="flex bg-slate-200 p-1.5 rounded-2xl mb-6 max-w-lg mx-auto shadow-inner border border-slate-300">
-            <button
-              onClick={() => setActiveTab('scanner')}
-              className={`flex-1 py-2.5 rounded-xl font-black text-xs sm:text-sm transition-all ${
-                activeTab === 'scanner'
-                  ? 'bg-white shadow-md text-emerald-800 scale-102'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              {t.scannerTab}
-            </button>
-            <button
-              onClick={() => setActiveTab('prices')}
-              className={`flex-1 py-2.5 rounded-xl font-black text-xs sm:text-sm transition-all ${
-                activeTab === 'prices'
-                  ? 'bg-white shadow-md text-emerald-800 scale-102'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              {t.pricesTab}
-            </button>
-            <button
-              onClick={() => setActiveTab('recycler')}
-              className={`flex-1 py-2.5 rounded-xl font-black text-xs sm:text-sm transition-all ${
-                activeTab === 'recycler'
-                  ? 'bg-white shadow-md text-emerald-800 scale-102'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              {t.recyclerTab}
-            </button>
-          </div>
-
-          {/* Tab Views */}
-          {activeTab === 'scanner' && (
-            <div className="max-w-xl mx-auto">
-              <Scanner
-                apiBaseUrl={API_BASE_URL}
-                onAnalysisComplete={handleScanComplete}
-                lang={lang}
-              />
+          {!userRole ? (
+            <div className="flex flex-col items-center justify-center h-full py-10">
+              <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full border border-slate-200 text-center">
+                <div className="bg-emerald-100 text-emerald-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Sparkles className="w-8 h-8" />
+                </div>
+                <h2 className="text-2xl font-black text-slate-800 mb-2">Welcome to SafaaiWala</h2>
+                <p className="text-slate-500 mb-8 text-sm">Please select your role to continue</p>
+                
+                <div className="space-y-4">
+                  <button
+                    onClick={() => handleLogin('collector')}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    <Recycle className="w-5 h-5" />
+                    Kabadiwala (Scrap Collector)
+                  </button>
+                  <button
+                    onClick={() => handleLogin('recycler')}
+                    className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    <Globe className="w-5 h-5" />
+                    EPR Recycler Facility
+                  </button>
+                </div>
+              </div>
             </div>
-          )}
-
-          {activeTab === 'prices' && (
-            <div className="max-w-3xl mx-auto">
-              <LivePrices
-                apiBaseUrl={API_BASE_URL}
+          ) : (
+            <>
+              {/* Voice Assistant Module */}
+              <VoiceAssistant
                 lang={lang}
+                setLang={handleLangChange}
+                onNavigate={(tab) => setActiveTab(tab)}
+                onTriggerScan={() => setActiveTab('scanner')}
               />
-            </div>
-          )}
 
-          {activeTab === 'recycler' && (
-            <RecyclerDashboard
-              lang={lang}
-            />
+              {/* Navigation Tabs */}
+              <div className="flex bg-slate-200 p-1.5 rounded-2xl mb-6 max-w-lg mx-auto shadow-inner border border-slate-300">
+                {userRole === 'collector' && (
+                  <button
+                    onClick={() => setActiveTab('scanner')}
+                    className={`flex-1 py-2.5 rounded-xl font-black text-xs sm:text-sm transition-all ${
+                      activeTab === 'scanner'
+                        ? 'bg-white shadow-md text-emerald-800 scale-102'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {t.scannerTab}
+                  </button>
+                )}
+                <button
+                  onClick={() => setActiveTab('prices')}
+                  className={`flex-1 py-2.5 rounded-xl font-black text-xs sm:text-sm transition-all ${
+                    activeTab === 'prices'
+                      ? 'bg-white shadow-md text-emerald-800 scale-102'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {t.pricesTab}
+                </button>
+                {userRole === 'recycler' && (
+                  <button
+                    onClick={() => setActiveTab('recycler')}
+                    className={`flex-1 py-2.5 rounded-xl font-black text-xs sm:text-sm transition-all ${
+                      activeTab === 'recycler'
+                        ? 'bg-white shadow-md text-emerald-800 scale-102'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {t.recyclerTab}
+                  </button>
+                )}
+              </div>
+
+              {/* Tab Views */}
+              {activeTab === 'scanner' && userRole === 'collector' && (
+                <div className="max-w-xl mx-auto">
+                  <Scanner
+                    apiBaseUrl={API_BASE_URL}
+                    onAnalysisComplete={handleScanComplete}
+                    lang={lang}
+                  />
+                </div>
+              )}
+
+              {activeTab === 'prices' && (
+                <div className="max-w-3xl mx-auto">
+                  <LivePrices
+                    apiBaseUrl={API_BASE_URL}
+                    lang={lang}
+                  />
+                </div>
+              )}
+
+              {activeTab === 'recycler' && userRole === 'recycler' && (
+                <RecyclerDashboard
+                  lang={lang}
+                />
+              )}
+            </>
           )}
         </main>
 

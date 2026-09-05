@@ -179,7 +179,6 @@ export default function VoiceAssistant({ lang = 'hi', setLang, onNavigate, onTri
         recognitionRef.current.lang = langCodeMap[lang] || 'hi-IN';
         recognitionRef.current.start();
         setIsListening(true);
-        speak(t.voiceActiveMsg);
       } catch (err) {
         console.warn('Speech start error:', err);
         setIsListening(false);
