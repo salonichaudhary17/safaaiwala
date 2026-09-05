@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "SafaaiWala AI",
+    "slug": "safaaiwala-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#064e3b"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "SafaaiWala requires camera access to identify e-waste materials."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#064e3b"
+      },
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow SafaaiWala to access your camera to scan scrap."
+        }
+      ],
+      "expo-asset",
+      "expo-font"
+    ]
+  }
+}

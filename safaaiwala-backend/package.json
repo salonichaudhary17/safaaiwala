@@ -1,0 +1,33 @@
+{
+  "name": "safaaiwala-backend",
+  "version": "1.0.0",
+  "description": "SafaaiWala CPCB EPR E-Waste AI Backend with Anthropic Claude 3.5 Sonnet RAG",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "seed": "node seeds/seedData.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.38.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "mongoose": "^8.9.5",
+    "multer": "^1.4.5-lts.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "e-waste",
+    "safaaiwala",
+    "epr",
+    "cpcb",
+    "anthropic",
+    "claude-3.5-sonnet",
+    "rag"
+  ],
+  "author": "SafaaiWala Team",
+  "license": "ISC"
+}
