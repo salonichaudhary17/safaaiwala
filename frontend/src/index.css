@@ -136,6 +136,8 @@ button {
   gap: 6px;
   cursor: pointer;
   min-height: 84px;
+  font: inherit;
+  color: inherit;
 }
 .material-tile.selected {
   border-color: var(--teal);
@@ -147,13 +149,37 @@ button {
   line-height: 1.25;
 }
 
-.bottom-nav {
+.bottom-nav-shell {
   position: sticky;
   bottom: 0;
   left: 0;
   right: 0;
   background: var(--surface);
   border-top: 1px solid var(--border);
+  z-index: 20;
+}
+
+.nav-lang-toggle {
+  margin: 8px 10px 0;
+  justify-content: stretch;
+}
+
+.nav-lang-toggle button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 36px;
+  font-size: 12px;
+}
+
+.lang-flag {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.bottom-nav {
   display: flex;
   padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
 }

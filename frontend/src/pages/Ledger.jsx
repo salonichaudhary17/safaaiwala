@@ -3,6 +3,7 @@ import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
 import { getLedger } from "../lib/api";
 import Icon from "../components/Icon";
+import EwasteValuationCalculator from "../components/EwasteValuationCalculator";
 
 export default function Ledger() {
   const { lang, collector } = useApp();
@@ -51,6 +52,8 @@ export default function Ledger() {
           <p className="muted">No transactions yet.</p>
         )}
       </div>
+
+      <EwasteValuationCalculator collectorId={collector.id} lang={lang} />
     </div>
   );
 }

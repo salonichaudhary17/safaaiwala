@@ -1,14 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSpeechFeedback } from "../hooks/useSpeechFeedback";
+import { useApp } from "../context/AppContext";
 import type {
   SafetyWarningTopic,
   SupportedLanguage,
 } from "../types/ewaste";
-
-const LANG_CODES: Record<SupportedLanguage, string> = {
-  en: "en-IN",
-  hi: "hi-IN",
-  mr: "mr-IN",
-};
 
 const LANG_LABELS: Record<SupportedLanguage, string> = {
   en: "English",
@@ -197,18 +193,23 @@ export interface AudioAccessibilityPlayerProps {
 
 export default function AudioAccessibilityPlayer({
   topics = ALL_TOPICS,
-  lang: initialLang = "hi",
+  lang: initialLang,
   onLangChange,
   compact = false,
 }: AudioAccessibilityPlayerProps) {
-  const [lang, setLang] =
-    useState<SupportedLanguage>(initialLang);
+  const app = useApp();
+  const {
+    isSupported: voiceSupported,
+    isSpeaking,
+    isPaused,
+    speakQueue,
+    pause,
+    resume,
+    stop,
+  } = useSpeechFeedback();
 
-  const [isSpeaking, setIsSpeaking] =
-    useState<boolean>(false);
-
-  const [isPaused, setIsPaused] =
-    useState<boolean>(false);
+  const lang: SupportedLanguage =
+    initialLang || app?.lang || "hi";
 
   const [activeIndex, setActiveIndex] =
     useState<number | null>(null);
@@ -216,44 +217,18 @@ export default function AudioAccessibilityPlayer({
   const [expanded, setExpanded] =
     useState<Set<SafetyWarningTopic>>(new Set());
 
-  const utteranceQueueRef =
-    useRef<SpeechSynthesisUtterance[]>([]);
-
-  const voiceSupported =
-    typeof window !== "undefined" &&
-    "speechSynthesis" in window &&
-    "SpeechSynthesisUtterance" in window;
-
-  /*
-   * Cleanup speech when the component is removed.
-   */
   useEffect(() => {
-    return () => {
-      if (voiceSupported) {
-        window.speechSynthesis.cancel();
-      }
-    };
-  }, [voiceSupported]);
+    return () => stop();
+  }, [stop]);
 
-  /*
-   * Change language.
-   */
   const changeLang = useCallback(
     (next: SupportedLanguage) => {
-      if (voiceSupported) {
-        window.speechSynthesis.cancel();
-      }
-
-      utteranceQueueRef.current = [];
-
-      setLang(next);
-      onLangChange?.(next);
-
-      setIsSpeaking(false);
-      setIsPaused(false);
+      stop();
       setActiveIndex(null);
+      app?.setLang?.(next);
+      onLangChange?.(next);
     },
-    [onLangChange, voiceSupported]
+    [app, onLangChange, stop]
   );
 
   /*
@@ -276,138 +251,44 @@ export default function AudioAccessibilityPlayer({
     []
   );
 
-  /*
-   * Build the speech queue.
-   */
-  const buildUtterances = useCallback(() => {
-    return topics.map((topic, index) => {
-      const copy = WARNING_LIBRARY[topic];
-
-      const text =
-        `${copy.title[lang]}. ${copy.body[lang]}`;
-
-      const utterance =
-        new SpeechSynthesisUtterance(text);
-
-      utterance.lang = LANG_CODES[lang];
-      utterance.rate = 0.92;
-      utterance.pitch = 1;
-      utterance.volume = 1;
-
-      /*
-       * When this warning starts speaking.
-       */
-      utterance.onstart = () => {
-        setActiveIndex(index);
-        setIsSpeaking(true);
-        setIsPaused(false);
-      };
-
-      /*
-       * When this warning finishes.
-       */
-      utterance.onend = () => {
-        if (index === topics.length - 1) {
-          setIsSpeaking(false);
-          setIsPaused(false);
-          setActiveIndex(null);
-          utteranceQueueRef.current = [];
-        }
-      };
-
-      /*
-       * Handle speech errors.
-       */
-      utterance.onerror = () => {
-        setIsSpeaking(false);
-        setIsPaused(false);
-        setActiveIndex(null);
-        utteranceQueueRef.current = [];
-      };
-
-      return utterance;
-    });
-  }, [lang, topics]);
-
-  /*
-   * Play or resume.
-   */
   const handlePlay = useCallback(() => {
     if (!voiceSupported) {
       return;
     }
 
-    /*
-     * Resume if currently paused.
-     */
     if (isPaused) {
-      window.speechSynthesis.resume();
-
-      setIsPaused(false);
-      setIsSpeaking(true);
-
+      resume();
       return;
     }
 
-    /*
-     * Stop any previous queue.
-     */
-    window.speechSynthesis.cancel();
+    speakQueue(
+      topics.map((topic, index) => {
+        const copy = WARNING_LIBRARY[topic];
+        return {
+          text: `${copy.title[lang]}. ${copy.body[lang]}`,
+          onStart: () => setActiveIndex(index),
+        };
+      }),
+      {
+        lang,
+        rate: 0.92,
+        onEnd: () => setActiveIndex(null),
+        onError: () => setActiveIndex(null),
+      }
+    );
+  }, [isPaused, lang, resume, speakQueue, topics, voiceSupported]);
 
-    const utterances = buildUtterances();
-
-    if (utterances.length === 0) {
-      return;
-    }
-
-    utteranceQueueRef.current = utterances;
-
-    /*
-     * Add all warnings to the speech queue.
-     * speechSynthesis speaks them sequentially.
-     */
-    utterances.forEach((utterance) => {
-      window.speechSynthesis.speak(utterance);
-    });
-
-    setIsSpeaking(true);
-    setIsPaused(false);
-  }, [
-    buildUtterances,
-    isPaused,
-    voiceSupported,
-  ]);
-
-  /*
-   * Pause speech.
-   */
   const handlePause = useCallback(() => {
     if (!voiceSupported || !isSpeaking) {
       return;
     }
+    pause();
+  }, [isSpeaking, pause, voiceSupported]);
 
-    window.speechSynthesis.pause();
-
-    setIsPaused(true);
-    setIsSpeaking(false);
-  }, [isSpeaking, voiceSupported]);
-
-  /*
-   * Stop speech completely.
-   */
   const handleStop = useCallback(() => {
-    if (!voiceSupported) {
-      return;
-    }
-
-    window.speechSynthesis.cancel();
-
-    utteranceQueueRef.current = [];
-
-    setIsSpeaking(false);
-    setIsPaused(false);
+    stop();
     setActiveIndex(null);
-  }, [voiceSupported]);
+  }, [stop]);
 
   /*
    * Caption for the currently active warning.

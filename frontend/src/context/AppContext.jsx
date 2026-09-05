@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { trySync } from "../lib/offlineQueue";
 import { API_BASE } from "../lib/api";
 import { nearestZone } from "../lib/zones";
+import i18n from "../i18n/config";
 
 const AppContext = createContext(null);
 
@@ -47,8 +48,43 @@ function requestLocation() {
   });
 }
 
+const LANGUAGE_KEY = "safaaiwala_language";
+
+function readStoredLanguage() {
+  const stored =
+    typeof window !== "undefined"
+      ? window.localStorage.getItem(LANGUAGE_KEY)
+      : null;
+  if (stored === "en" || stored === "hi" || stored === "mr") {
+    return stored;
+  }
+  return i18n.language === "en" || i18n.language === "mr" ? i18n.language : "hi";
+}
+
 export function AppProvider({ children }) {
-  const [lang, setLang] = useState("hi");
+  const [lang, setLangState] = useState(readStoredLanguage);
+
+  function setLang(next) {
+    if (next !== "en" && next !== "hi" && next !== "mr") {
+      return;
+    }
+    setLangState(next);
+    if (i18n.language !== next) {
+      i18n.changeLanguage(next);
+    }
+  }
+
+  useEffect(() => {
+    const onChanged = (language) => {
+      if (language === "en" || language === "hi" || language === "mr") {
+        setLangState(language);
+      }
+    };
+    i18n.on("languageChanged", onChanged);
+    return () => {
+      i18n.off("languageChanged", onChanged);
+    };
+  }, []);
   const [online, setOnline] = useState(navigator.onLine);
   const [collectorId] = useState(getOrCreateCollectorId);
   const [locationState, setLocationState] = useState({

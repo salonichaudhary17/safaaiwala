@@ -3,6 +3,8 @@ import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
 import { getMaterials, getPrice } from "../lib/api";
 import Icon from "../components/Icon";
+import SafetyGuide from "../components/SafetyGuide";
+import AudioAccessibilityPlayer from "../components/AudioAccessibilityPlayer";
 
 const HIGHLIGHT_MATERIALS = ["pcb", "cable", "battery", "plastic"];
 
@@ -53,6 +55,9 @@ export default function Home({ onNavigate }) {
           ))}
         </div>
       </div>
+
+      <SafetyGuide lang={lang} />
+      <AudioAccessibilityPlayer lang={lang} compact />
     </div>
   );
 }

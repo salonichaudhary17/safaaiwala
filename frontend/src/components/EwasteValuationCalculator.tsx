@@ -22,6 +22,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import PriceSpeaker from "./PriceSpeaker";
+import { useApp } from "../context/AppContext";
 import {
   EWASTE_SUBCATEGORIES,
   METAL_REFERENCE,
@@ -225,9 +227,11 @@ export interface EwasteValuationCalculatorProps {
 
 export default function EwasteValuationCalculator({
   collectorId,
-  lang = "hi",
+  lang: langProp,
   onLogged,
 }: EwasteValuationCalculatorProps) {
+  const app = useApp();
+  const lang: SupportedLanguage = langProp || app?.lang || "hi";
   const [categoryId, setCategoryId] = useState<EwasteCategoryId>(EWASTE_SUBCATEGORIES[0].id);
   const [weightInput, setWeightInput] = useState("1");
   const [grade, setGrade] = useState<"A" | "B" | "C">("B");
@@ -374,6 +378,14 @@ export default function EwasteValuationCalculator({
               ₹{Math.round(result.finalEstimateInr)}
             </span>
           </div>
+          <PriceSpeaker
+            materialName={subcategory.labels[lang]}
+            price={result.weightKg ? result.finalEstimateInr / result.weightKg : result.finalEstimateInr}
+            weightKg={result.weightKg}
+            estimatedValue={Math.round(result.finalEstimateInr)}
+            autoSpeak
+            autoSpeakKey={`${result.category}-${result.weightKg}-${result.finalEstimateInr}-${result.computedAt}`}
+          />
           <div className="row between">
             <span className="muted">{t("confidence", lang)}</span>
             <span className={confidencePillClass(result.confidence)}>{confidenceLabel(result.confidence)}</span>

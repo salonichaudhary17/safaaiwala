@@ -1,139 +1,62 @@
-import {
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { useSpeechFeedback } from "../hooks/useSpeechFeedback";
 
 interface PriceSpeakerProps {
   materialName: string;
-  price: number;
+  price?: number | null;
   unit?: string;
-}
-
-const LANGUAGE_MAP: Record<
-  string,
-  string
-> = {
-  en: "en-IN",
-  hi: "hi-IN",
-  mr: "mr-IN",
-};
-
-function formatPrice(
-  price: number,
-  language: string
-) {
-  const formatter =
-    new Intl.NumberFormat(
-      language === "hi"
-        ? "hi-IN"
-        : language === "mr"
-        ? "mr-IN"
-        : "en-IN",
-      {
-        maximumFractionDigits: 0,
-      }
-    );
-
-  return formatter.format(
-    price
-  );
+  weightKg?: number | null;
+  estimatedValue?: number | null;
+  autoSpeak?: boolean;
+  autoSpeakKey?: string | number;
 }
 
 export default function PriceSpeaker({
   materialName,
-  price,
+  price = null,
   unit = "kg",
+  weightKg = null,
+  estimatedValue = null,
+  autoSpeak = false,
+  autoSpeakKey,
 }: PriceSpeakerProps) {
-  const { i18n, t } =
-    useTranslation();
+  const { t } = useTranslation();
+  const { isSupported, isSpeaking, speakPrice, stop } = useSpeechFeedback();
+  const lastKeyRef = useRef<string | number | null>(null);
 
-  const [speaking, setSpeaking] =
-    useState(false);
-
-  const supported =
-    typeof window !==
-      "undefined" &&
-    "speechSynthesis" in
-      window &&
-    "SpeechSynthesisUtterance" in
-      window;
+  const payload = {
+    materialName,
+    pricePerKg: price,
+    weightKg,
+    estimatedValue,
+    unit,
+  };
 
   useEffect(() => {
-    return () => {
-      if (supported) {
-        window.speechSynthesis.cancel();
-      }
-    };
-  }, [supported]);
+    return () => stop();
+  }, [stop]);
 
-  const speak = useCallback(() => {
-    if (
-      !supported ||
-      !Number.isFinite(price)
-    ) {
-      return;
-    }
-
-    window.speechSynthesis.cancel();
-
-    const language =
-      i18n.language || "hi";
-
-    const localizedPrice =
-      formatPrice(
-        price,
-        language
-      );
-
-    let text: string;
-
-    if (language === "hi") {
-      text = `${materialName} का भाव ${localizedPrice} रुपये प्रति ${unit} है।`;
-    } else if (
-      language === "mr"
-    ) {
-      text = `${materialName} चा भाव ${localizedPrice} रुपये प्रति ${unit} आहे.`;
-    } else {
-      text = `${materialName} price is ${localizedPrice} rupees per ${unit}.`;
-    }
-
-    const utterance =
-      new SpeechSynthesisUtterance(
-        text
-      );
-
-    utterance.lang =
-      LANGUAGE_MAP[
-        language
-      ] || "hi-IN";
-
-    utterance.rate = 0.82;
-    utterance.pitch = 1;
-    utterance.volume = 1;
-
-    utterance.onstart = () =>
-      setSpeaking(true);
-
-    utterance.onend = () =>
-      setSpeaking(false);
-
-    utterance.onerror = () =>
-      setSpeaking(false);
-
-    window.speechSynthesis.speak(
-      utterance
-    );
+  useEffect(() => {
+    if (!autoSpeak || !isSupported) return;
+    const key =
+      autoSpeakKey ??
+      `${materialName}|${price}|${weightKg}|${estimatedValue}`;
+    if (lastKeyRef.current === key) return;
+    lastKeyRef.current = key;
+    speakPrice(payload);
   }, [
-    i18n.language,
+    autoSpeak,
+    autoSpeakKey,
+    estimatedValue,
+    isSupported,
     materialName,
     price,
-    supported,
-    unit,
+    speakPrice,
+    weightKg,
   ]);
 
-  if (!supported) {
+  if (!isSupported) {
     return null;
   }
 
@@ -141,16 +64,11 @@ export default function PriceSpeaker({
     <button
       type="button"
       className="btn btn-secondary"
-      onClick={speak}
-      aria-label={t(
-        "speakPrice"
-      )}
-      disabled={speaking}
+      onClick={() => speakPrice(payload)}
+      aria-label={t("speakPrice")}
+      disabled={isSpeaking}
     >
-      {speaking
-        ? "🔊"
-        : "🔈"}{" "}
-      {t("listenPrice")}
+      {isSpeaking ? "🔊" : "🔈"} {t("listenPrice")}
     </button>
   );
 }

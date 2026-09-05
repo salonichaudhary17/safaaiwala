@@ -16,6 +16,7 @@ import {
   type CreateLotPayload,
 } from "../lib/api";
 
+import Icon from "./Icon";
 import PriceSpeaker from "./PriceSpeaker";
 
 interface LotCreationProps {
@@ -85,6 +86,9 @@ export default function LotCreation({
 
   const [message, setMessage] =
     useState("");
+
+  const [speechKey, setSpeechKey] =
+    useState(0);
 
   const selectedMaterial =
     useMemo(
@@ -344,6 +348,15 @@ export default function LotCreation({
         selectedMaterial.label_en
       : "";
 
+  function materialKey(material: Material) {
+    return material.code || material.id;
+  }
+
+  function selectMaterial(material: Material) {
+    setMaterialCode(materialKey(material));
+    setSpeechKey((value) => value + 1);
+  }
+
   return (
     <form
       className="stack"
@@ -356,39 +369,38 @@ export default function LotCreation({
       </div>
 
       <div className="card stack">
-        <label>
-          <div className="muted">
+        <div>
+          <div className="muted" style={{ marginBottom: 6 }}>
             {t("material")}
           </div>
-
-          <select
-            value={materialCode}
-            onChange={(event) =>
-              setMaterialCode(
-                event.target
-                  .value
-              )
-            }
-            disabled={
-              loadingMaterials
-            }
-          >
-            {materials.map(
-              (material) => (
-                <option
-                  key={
-                    material.code
-                  }
-                  value={
-                    material.code
-                  }
+          <div className="material-grid">
+            {materials.map((material) => {
+              const code = material.code || material.id;
+              const label =
+                material[
+                  `label_${i18n.language}` as
+                    | "label_en"
+                    | "label_hi"
+                    | "label_mr"
+                ] || material.label_en;
+              return (
+                <button
+                  key={code}
+                  type="button"
+                  className={`material-tile ${
+                    materialCode === code ? "selected" : ""
+                  }`}
+                  onClick={() => selectMaterial(material)}
+                  disabled={loadingMaterials}
+                  aria-pressed={materialCode === code}
                 >
-                  {material.label_en}
-                </option>
-              )
-            )}
-          </select>
-        </label>
+                  <Icon name={material.id || code} size={26} color="#0F6E56" />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         {selectedMaterial &&
           selectedMaterial.hazardous && (
@@ -523,6 +535,14 @@ export default function LotCreation({
                   materialLabel
                 }
                 price={price}
+                weightKg={
+                  estimatedValue !== null
+                    ? numericWeight
+                    : null
+                }
+                estimatedValue={estimatedValue}
+                autoSpeak={speechKey > 0 && !loadingPrice}
+                autoSpeakKey={`${materialCode}-${price}-${estimatedValue}-${speechKey}`}
               />
             </>
           ) : (
@@ -560,6 +580,12 @@ export default function LotCreation({
                 "en-IN"
               )}
             </div>
+            <PriceSpeaker
+              materialName={materialLabel}
+              price={price}
+              weightKg={numericWeight}
+              estimatedValue={estimatedValue}
+            />
           </div>
         )}
 

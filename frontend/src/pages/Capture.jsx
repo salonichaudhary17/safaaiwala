@@ -3,6 +3,7 @@ import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
 import { getMaterials, createLot, createTransaction } from "../lib/api";
 import Icon from "../components/Icon";
+import LotCreation from "../components/LotCreation";
 
 export default function Capture() {
   const { lang, collector } = useApp();
@@ -78,6 +79,7 @@ export default function Capture() {
 
   return (
     <div className="stack">
+      <LotCreation collector={collector} />
       {step === 1 && (
         <>
           <div className="h1">{t("captureTitle", lang)}</div>
