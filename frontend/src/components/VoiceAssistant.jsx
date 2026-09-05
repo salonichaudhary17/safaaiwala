@@ -21,18 +21,13 @@ export default function VoiceAssistant({ lang = 'hi', setLang, onNavigate, onTri
     if (SpeechRecognition) {
       const rec = new SpeechRecognition();
       rec.continuous = false;
-      rec.interimResults = true;
+      rec.interimResults = false; // More reliable across browsers
       rec.lang = langCodeMap[lang] || 'hi-IN';
 
       rec.onresult = (event) => {
-        let currentTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          currentTranscript += event.results[i][0].transcript;
-        }
+        const currentTranscript = event.results[0][0].transcript;
         setTranscript(currentTranscript);
-        if (event.results[0]?.isFinal) {
-          parseVoiceCommand(currentTranscript);
-        }
+        parseVoiceCommand(currentTranscript);
       };
 
       rec.onerror = (e) => {
@@ -177,17 +172,12 @@ export default function VoiceAssistant({ lang = 'hi', setLang, onNavigate, onTri
         if (!recognitionRef.current) {
           const rec = new SpeechRecognition();
           rec.continuous = false;
-          rec.interimResults = true;
+          rec.interimResults = false;
           rec.lang = langCodeMap[lang] || 'hi-IN';
           rec.onresult = (event) => {
-            let currentTranscript = '';
-            for (let i = event.resultIndex; i < event.results.length; i++) {
-              currentTranscript += event.results[i][0].transcript;
-            }
+            const currentTranscript = event.results[0][0].transcript;
             setTranscript(currentTranscript);
-            if (event.results[0]?.isFinal) {
-              parseVoiceCommand(currentTranscript);
-            }
+            parseVoiceCommand(currentTranscript);
           };
           rec.onerror = () => setIsListening(false);
           rec.onend = () => setIsListening(false);
