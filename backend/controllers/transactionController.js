@@ -8,7 +8,23 @@ const {
   hashPayload,
 } = require("../models/Schemas");
 const { emitTransaction } = require("../utils/realtime");
+const axios = require('axios'); // or use native fetch in modern Node.js
 
+async function verifyTransactionWithML(weight, value) {
+    try {
+        const response = await axios.post('http://localhost:8000/check-transaction', {
+            weight: weight,
+            value: value
+        });
+        
+        console.log("ML Result:", response.data);
+        return response.data; // { status: "Normal" | "Suspicious", message: "..." }
+    } catch (error) {
+        console.error("ML Service Error:", error.message);
+        // Fallback: allow transaction if ML service is offline
+        return { status: "Normal", message: "ML bypass due to network error" };
+    }
+}
 function validateLegacyBody(body) {
   const required = [
     "clientTransactionId",
