@@ -1,0 +1,18 @@
+[
+  {
+    "id": "c1",
+    "preferred_language": "hi",
+    "operating_location": "Mayapuri",
+    "lat": 28.6305,
+    "lng": 77.1252,
+    "joined": "2026-08-10"
+  },
+  {
+    "id": "c2",
+    "preferred_language": "mr",
+    "operating_location": "Bawana",
+    "lat": 28.7981,
+    "lng": 77.0355,
+    "joined": "2026-08-15"
+  }
+]

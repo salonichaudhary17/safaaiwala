@@ -1,0 +1,45 @@
+[
+  { "id": "p1", "material_id": "pcb", "location": "Delhi", "date": "2026-08-20", "buy_price_per_kg": 180, "sell_price_per_kg": 220, "unit": "kg" },
+  { "id": "p2", "material_id": "pcb", "location": "Delhi", "date": "2026-08-27", "buy_price_per_kg": 185, "sell_price_per_kg": 225, "unit": "kg" },
+  { "id": "p3", "material_id": "cable", "location": "Delhi", "date": "2026-08-27", "buy_price_per_kg": 140, "sell_price_per_kg": 165, "unit": "kg" },
+  { "id": "p4", "material_id": "battery", "location": "Delhi", "date": "2026-08-27", "buy_price_per_kg": 60, "sell_price_per_kg": 75, "unit": "kg" },
+  { "id": "p5", "material_id": "plastic", "location": "Delhi", "date": "2026-08-27", "buy_price_per_kg": 18, "sell_price_per_kg": 22, "unit": "kg" },
+  { "id": "p6", "material_id": "crt", "location": "Delhi", "date": "2026-08-27", "buy_price_per_kg": 8, "sell_price_per_kg": 10, "unit": "kg" },
+  { "id": "p7", "material_id": "lcd", "location": "Delhi", "date": "2026-08-27", "buy_price_per_kg": 30, "sell_price_per_kg": 36, "unit": "kg" },
+  { "id": "p8", "material_id": "motor", "location": "Delhi", "date": "2026-08-27", "buy_price_per_kg": 210, "sell_price_per_kg": 250, "unit": "kg" },
+
+  { "id": "p9", "material_id": "pcb", "location": "Mumbai", "date": "2026-08-20", "buy_price_per_kg": 190, "sell_price_per_kg": 232, "unit": "kg" },
+  { "id": "p10", "material_id": "pcb", "location": "Mumbai", "date": "2026-08-27", "buy_price_per_kg": 195, "sell_price_per_kg": 238, "unit": "kg" },
+  { "id": "p11", "material_id": "cable", "location": "Mumbai", "date": "2026-08-27", "buy_price_per_kg": 148, "sell_price_per_kg": 172, "unit": "kg" },
+  { "id": "p12", "material_id": "battery", "location": "Mumbai", "date": "2026-08-27", "buy_price_per_kg": 64, "sell_price_per_kg": 80, "unit": "kg" },
+  { "id": "p13", "material_id": "plastic", "location": "Mumbai", "date": "2026-08-27", "buy_price_per_kg": 19, "sell_price_per_kg": 24, "unit": "kg" },
+  { "id": "p14", "material_id": "motor", "location": "Mumbai", "date": "2026-08-27", "buy_price_per_kg": 215, "sell_price_per_kg": 258, "unit": "kg" },
+
+  { "id": "p15", "material_id": "pcb", "location": "Bengaluru", "date": "2026-08-27", "buy_price_per_kg": 200, "sell_price_per_kg": 245, "unit": "kg" },
+  { "id": "p16", "material_id": "cable", "location": "Bengaluru", "date": "2026-08-27", "buy_price_per_kg": 150, "sell_price_per_kg": 176, "unit": "kg" },
+  { "id": "p17", "material_id": "battery", "location": "Bengaluru", "date": "2026-08-27", "buy_price_per_kg": 66, "sell_price_per_kg": 82, "unit": "kg" },
+  { "id": "p18", "material_id": "lcd", "location": "Bengaluru", "date": "2026-08-27", "buy_price_per_kg": 32, "sell_price_per_kg": 39, "unit": "kg" },
+
+  { "id": "p19", "material_id": "pcb", "location": "Chennai", "date": "2026-08-27", "buy_price_per_kg": 178, "sell_price_per_kg": 218, "unit": "kg" },
+  { "id": "p20", "material_id": "cable", "location": "Chennai", "date": "2026-08-27", "buy_price_per_kg": 138, "sell_price_per_kg": 162, "unit": "kg" },
+  { "id": "p21", "material_id": "battery", "location": "Chennai", "date": "2026-08-27", "buy_price_per_kg": 58, "sell_price_per_kg": 73, "unit": "kg" },
+  { "id": "p22", "material_id": "plastic", "location": "Chennai", "date": "2026-08-27", "buy_price_per_kg": 17, "sell_price_per_kg": 21, "unit": "kg" },
+
+  { "id": "p23", "material_id": "pcb", "location": "Kolkata", "date": "2026-08-27", "buy_price_per_kg": 170, "sell_price_per_kg": 208, "unit": "kg" },
+  { "id": "p24", "material_id": "cable", "location": "Kolkata", "date": "2026-08-27", "buy_price_per_kg": 132, "sell_price_per_kg": 155, "unit": "kg" },
+  { "id": "p25", "material_id": "plastic", "location": "Kolkata", "date": "2026-08-27", "buy_price_per_kg": 16, "sell_price_per_kg": 20, "unit": "kg" },
+
+  { "id": "p26", "material_id": "pcb", "location": "Hyderabad", "date": "2026-08-27", "buy_price_per_kg": 182, "sell_price_per_kg": 222, "unit": "kg" },
+  { "id": "p27", "material_id": "battery", "location": "Hyderabad", "date": "2026-08-27", "buy_price_per_kg": 61, "sell_price_per_kg": 76, "unit": "kg" },
+  { "id": "p28", "material_id": "crt", "location": "Hyderabad", "date": "2026-08-27", "buy_price_per_kg": 7, "sell_price_per_kg": 9, "unit": "kg" },
+  { "id": "p29", "material_id": "lcd", "location": "Hyderabad", "date": "2026-08-27", "buy_price_per_kg": 29, "sell_price_per_kg": 35, "unit": "kg" },
+
+  { "id": "p30", "material_id": "pcb", "location": "Pune", "date": "2026-08-27", "buy_price_per_kg": 188, "sell_price_per_kg": 228, "unit": "kg" },
+  { "id": "p31", "material_id": "cable", "location": "Pune", "date": "2026-08-27", "buy_price_per_kg": 144, "sell_price_per_kg": 168, "unit": "kg" },
+  { "id": "p32", "material_id": "motor", "location": "Pune", "date": "2026-08-27", "buy_price_per_kg": 212, "sell_price_per_kg": 252, "unit": "kg" },
+  { "id": "p33", "material_id": "plastic", "location": "Pune", "date": "2026-08-27", "buy_price_per_kg": 18, "sell_price_per_kg": 23, "unit": "kg" },
+
+  { "id": "p34", "material_id": "cable", "location": "Ahmedabad", "date": "2026-08-27", "buy_price_per_kg": 136, "sell_price_per_kg": 160, "unit": "kg" },
+  { "id": "p35", "material_id": "battery", "location": "Ahmedabad", "date": "2026-08-27", "buy_price_per_kg": 59, "sell_price_per_kg": 74, "unit": "kg" },
+  { "id": "p36", "material_id": "motor", "location": "Ahmedabad", "date": "2026-08-27", "buy_price_per_kg": 205, "sell_price_per_kg": 245, "unit": "kg" }
+]
