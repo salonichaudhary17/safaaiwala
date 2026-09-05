@@ -170,10 +170,27 @@ export default function VoiceAssistant({ lang = 'hi', setLang, onNavigate, onTri
     } else {
       setTranscript('');
       try {
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+        }
+        
         if (!recognitionRef.current) {
           const rec = new SpeechRecognition();
+          rec.continuous = false;
+          rec.interimResults = true;
           rec.lang = langCodeMap[lang] || 'hi-IN';
-          rec.onresult = (e) => setTranscript(e.results[0][0].transcript);
+          rec.onresult = (event) => {
+            let currentTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+              currentTranscript += event.results[i][0].transcript;
+            }
+            setTranscript(currentTranscript);
+            if (event.results[0]?.isFinal) {
+              parseVoiceCommand(currentTranscript);
+            }
+          };
+          rec.onerror = () => setIsListening(false);
+          rec.onend = () => setIsListening(false);
           recognitionRef.current = rec;
         }
         recognitionRef.current.lang = langCodeMap[lang] || 'hi-IN';
