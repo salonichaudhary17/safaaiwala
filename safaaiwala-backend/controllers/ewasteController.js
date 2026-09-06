@@ -88,22 +88,25 @@ exports.analyzeMaterial = async (req, res) => {
 You are SafaaiWala's expert computer vision model for e-waste scrap in India.
 Analyze the provided photo.
 
-Categories allowed:
-1. 'PCB' (Printed Circuit Boards, green/gold motherboards, RAM)
-2. 'Lithium Battery' (Pouch cells, 18650 cylinders, laptop packs)
-3. 'Copper Wires' (Stripped or insulated reddish copper cables)
-4. 'CRT Monitor' (Glass picture tubes, screens)
-5. 'Aluminium Scrap' (Clean metallic metal, aluminium heatsinks/cans)
-6. 'Mixed Plastic' (Plastic casings, keyboard polymers)
+You must classify the dominant object into EXACTLY one of these categories:
+- "PCB"
+- "Lithium Battery"
+- "Copper Wire"
+- "CRT"
+- "Aluminium"
+- "Mixed Waste"
+
+If the image is unclear, blurry, or confidence is low, strictly output "Mixed Waste".
 
 Current Benchmark Price per KG:
 ${JSON.stringify(priceMap, null, 2)}
 
-Return strictly JSON:
+Return strictly JSON with NO markdown formatting:
 {
-  "category": "PCB | Lithium Battery | Copper Wires | CRT Monitor | Aluminium Scrap | Mixed Plastic",
+  "category": "e-waste" | "plastic" | "metal" | "hazardous",
+  "itemType": "PCB" | "Lithium Battery" | "Copper Wire" | "CRT" | "Aluminium" | "Mixed Waste",
   "confidence": 0.95,
-  "hazardLevel": "Low | Moderate | High | Critical",
+  "hazardLevel": "Low" | "Moderate" | "High" | "Critical",
   "safetyWarning": "दस्ताने पहनें और सुरक्षा से रखें।",
   "avgPricePerKg": number,
   "weightKg": ${weightKg},
@@ -125,6 +128,27 @@ Return strictly JSON:
         });
 
         const parsed = cleanAndParseJSON(response.content[0].text);
+        
+        // Strict price mapping
+        const fixedPriceMap = {
+          'PCB': 180,
+          'Lithium Battery': 220,
+          'Copper Wire': 440,
+          'CRT': 85,
+          'Aluminium': 155,
+          'Mixed Waste': 28
+        };
+        
+        parsed.itemType = fixedPriceMap[parsed.itemType] ? parsed.itemType : 'Mixed Waste';
+        parsed.avgPricePerKg = fixedPriceMap[parsed.itemType];
+        parsed.estimatedValue = Math.round(weightKg * parsed.avgPricePerKg);
+        parsed.safetyWarning = getVernacularWarning(parsed.itemType, 'hi');
+
+        // Normalise fields for Scanner.jsx
+        if (!parsed.category) {
+          parsed.category = parsed.itemType;
+        }
+
         return res.status(200).json({ success: true, data: parsed });
       } catch (anthropicErr) {
         console.warn('Anthropic API error, falling back to smart classifier:', anthropicErr.message);

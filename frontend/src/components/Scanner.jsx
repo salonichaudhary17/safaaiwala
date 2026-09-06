@@ -173,17 +173,33 @@ export default function Scanner({ apiBaseUrl, onAnalysisComplete, lang = 'hi' })
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 4000);
-        const res = await fetch(`${apiBaseUrl}/api/waste/classify`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64: base64Image, weightKg }),
-          signal: controller.signal
-        });
+        let res;
+        try {
+          res = await fetch(`${apiBaseUrl}/api/waste/classify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageBase64: base64Image, weightKg }),
+            signal: controller.signal
+          });
+        } catch (e) {
+          res = { ok: false };
+        }
+
+        if (!res.ok) {
+          res = await fetch(`${apiBaseUrl}/api/v1/analyze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageBase64: base64Image, weightKg }),
+            signal: controller.signal
+          });
+        }
+
         clearTimeout(timeoutId);
         if (res.ok) {
-          const data = await res.json();
-          setAnalysis(data);
-          speakWarning(data.safetyWarning || data.disposalTips);
+          const resData = await res.json();
+          const analysisData = resData.data ? resData.data : resData;
+          setAnalysis(analysisData);
+          speakWarning(analysisData.safetyWarning || analysisData.disposalTips || ' स्कैन पूरा हुआ');
           identified = true;
         }
       } catch (err) {
