@@ -68,15 +68,7 @@ JSON Schema:
     return res.status(200).json(parsedData);
   } catch (error) {
     console.error('Gemini Classification Error:', error.message);
-    // Return structured fallback response on server side error
-    return res.status(200).json({
-      category: 'e-waste',
-      itemType: 'Circuit Board / Unidentified Electronics',
-      recyclability: 'High',
-      estimatedValuePerKg: 45,
-      hazardLevel: 'Moderate',
-      disposalTips: 'Contains heavy metals. Route to an authorized e-waste recycler.'
-    });
+    return res.status(500).json({ error: error.message });
   }
 };
 

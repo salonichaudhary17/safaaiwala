@@ -151,35 +151,12 @@ Return strictly JSON with NO markdown formatting:
 
         return res.status(200).json({ success: true, data: parsed });
       } catch (anthropicErr) {
-        console.warn('Anthropic API error, falling back to smart classifier:', anthropicErr.message);
+        console.warn('Anthropic API error:', anthropicErr.message);
+        return res.status(500).json({ success: false, error: anthropicErr.message });
       }
     }
 
-    // Dynamic Multi-Category Image Classifier
-    // Analyzes buffer characteristics to avoid defaulting to PCB for every object
-    let detectedCategory = 'PCB';
-    if (imageBase64) {
-      const buffer = Buffer.from(imageBase64, 'base64');
-      const hashByte = buffer.length > 50 ? buffer[Math.floor(buffer.length / 2)] : 128;
-      const categories = ['Copper Wires', 'Lithium Battery', 'PCB', 'Aluminium Scrap', 'CRT Monitor', 'Mixed Plastic'];
-      detectedCategory = categories[hashByte % categories.length];
-    }
-
-    const rate = priceMap[detectedCategory] || 180;
-    const hazardLevel = detectedCategory === 'Lithium Battery' ? 'Critical' : detectedCategory === 'PCB' || detectedCategory === 'CRT Monitor' ? 'High' : 'Low';
-
-    return res.status(200).json({
-      success: true,
-      data: {
-        category: detectedCategory,
-        confidence: 0.91,
-        hazardLevel,
-        safetyWarning: getVernacularWarning(detectedCategory, 'hi'),
-        avgPricePerKg: rate,
-        weightKg,
-        estimatedValue: Math.round(weightKg * rate)
-      }
-    });
+    return res.status(500).json({ success: false, error: 'No Vision API configured' });
   } catch (error) {
     console.error('analyzeMaterial error:', error);
     return res.status(500).json({ success: false, error: error.message });
