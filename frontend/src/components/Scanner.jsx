@@ -147,7 +147,6 @@ export default function Scanner({ apiBaseUrl, onAnalysisComplete, lang = 'hi' })
 
     setAnalysis(result);
     speakWarning(`${item.name} पहचाना गया। ${item.tip}`);
-    if (onAnalysisComplete) onAnalysisComplete({ ...result, weightKg });
   };
 
   const captureAndAnalyze = async () => {
@@ -185,7 +184,6 @@ export default function Scanner({ apiBaseUrl, onAnalysisComplete, lang = 'hi' })
           const data = await res.json();
           setAnalysis(data);
           speakWarning(data.safetyWarning || data.disposalTips);
-          if (onAnalysisComplete) onAnalysisComplete(data);
           identified = true;
         }
       } catch (err) {

@@ -167,6 +167,10 @@ export default function VoiceAssistant({ lang = 'hi', setLang, onNavigate, onTri
       try {
         if ('speechSynthesis' in window) {
           window.speechSynthesis.cancel();
+          // Unlock audio context on mobile by speaking an empty string during user interaction
+          const unlockUtterance = new SpeechSynthesisUtterance('');
+          unlockUtterance.volume = 0;
+          window.speechSynthesis.speak(unlockUtterance);
         }
         
         if (!recognitionRef.current) {
