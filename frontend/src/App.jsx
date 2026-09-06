@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import QRCode from 'qrcode';
 import VoiceAssistant from './components/VoiceAssistant';
 import Scanner from './components/Scanner';
 import LivePrices from './components/LivePrices';
@@ -140,7 +141,7 @@ export default function App() {
       handoverHash: handoverHash,
       createdAt: timeNow,
       status: 'verified_offline',
-      dynamicQrCode: `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=SAFAAIWALA_${handoverHash}`
+      dynamicQrCode: await QRCode.toDataURL(`SAFAAIWALA_${handoverHash}`)
     };
 
     // Save into offline persistent storage
