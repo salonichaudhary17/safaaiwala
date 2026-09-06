@@ -219,54 +219,80 @@ export default function RecyclerDashboard({ lang = 'hi' }) {
     );
   };
 
+  const scannerRef = React.useRef(null);
+
   useEffect(() => {
     if (!showQrScanner) return;
-    const scanner = new Html5QrcodeScanner(
-      'reader',
-      { fps: 10, qrbox: { width: 250, height: 250 }, supportedScanTypes: [0] },
-      false
-    );
     
-    scanner.render((text) => {
-      if (text.startsWith('SAFAAIWALA_')) {
-        scanner.clear();
-        setShowQrScanner(false);
-        const actualHash = text.replace('SAFAAIWALA_', '');
-        
-        // Find if we have this hash in our batches, or just add a new record
-        const existingBatch = incomingBatches.find(b => b.batchHash === actualHash);
-        if (existingBatch) {
-          verifyBatch(existingBatch.id);
-          setScannedHash(`Verified Existing Batch: ${existingBatch.id}`);
-        } else {
-          // It's a new offline scan from a collector!
-          const newId = `TXN-${Math.floor(100000 + Math.random() * 900000)}`;
-          const newBatch = {
-            id: newId,
-            origin: 'Local Collector Walk-in',
-            city: 'local',
-            material: 'Scanned via QR Handover',
-            weightKg: 'Dynamic',
-            collector: 'Offline QR Scan',
-            status: 'Verified & Logged',
-            batchHash: actualHash,
-            hazardLevel: 'Unknown',
-            eta: 'Completed',
-            verifiedAt: new Date().toLocaleTimeString('en-IN')
-          };
-          setIncomingBatches(prev => [newBatch, ...prev]);
-          setScannedHash(`Successfully logged new offline receipt: ${actualHash.substring(0, 16)}...`);
+    // Slight delay to ensure DOM is ready
+    const timer = setTimeout(() => {
+      const scanner = new Html5QrcodeScanner(
+        'reader',
+        { fps: 10, qrbox: { width: 250, height: 250 }, supportedScanTypes: [0] },
+        false
+      );
+      scannerRef.current = scanner;
+      
+      scanner.render((text) => {
+        if (text.startsWith('SAFAAIWALA_')) {
+          if (scannerRef.current) {
+            scannerRef.current.clear().catch(() => {});
+          }
+          setShowQrScanner(false);
+          const actualHash = text.replace('SAFAAIWALA_', '');
+          
+          // Find if we have this hash in our batches, or just add a new record
+          const existingBatch = incomingBatches.find(b => b.batchHash === actualHash);
+          if (existingBatch) {
+            verifyBatch(existingBatch.id);
+            setScannedHash(`Verified Existing Batch: ${existingBatch.id}`);
+          } else {
+            // It's a new offline scan from a collector!
+            const newId = `TXN-${Math.floor(100000 + Math.random() * 900000)}`;
+            const newBatch = {
+              id: newId,
+              origin: 'Local Collector Walk-in',
+              city: 'local',
+              material: 'Scanned via QR Handover',
+              weightKg: 'Dynamic',
+              collector: 'Offline QR Scan',
+              status: 'Verified & Logged',
+              batchHash: actualHash,
+              hazardLevel: 'Unknown',
+              eta: 'Completed',
+              verifiedAt: new Date().toLocaleTimeString('en-IN')
+            };
+            setIncomingBatches(prev => [newBatch, ...prev]);
+            setScannedHash(`Successfully logged new offline receipt: ${actualHash.substring(0, 16)}...`);
+          }
+          setTimeout(() => setScannedHash(null), 5000);
         }
-        setTimeout(() => setScannedHash(null), 5000);
-      }
-    }, (err) => {
-      // ignore
-    });
+      }, (err) => {
+        // ignore
+      });
+    }, 100);
 
     return () => {
-      scanner.clear().catch(() => {});
+      clearTimeout(timer);
+      if (scannerRef.current) {
+        scannerRef.current.clear().catch(() => {});
+        scannerRef.current = null;
+      }
     };
   }, [showQrScanner, incomingBatches]);
+
+  const closeScannerSafely = () => {
+    if (scannerRef.current) {
+      scannerRef.current.clear().then(() => {
+        setShowQrScanner(false);
+      }).catch(() => {
+        setShowQrScanner(false);
+      });
+      scannerRef.current = null;
+    } else {
+      setShowQrScanner(false);
+    }
+  };
 
   const filteredBatches = incomingBatches.filter(b => {
     const matchCity = cityFilter === 'all' || b.city === cityFilter;
@@ -361,7 +387,7 @@ export default function RecyclerDashboard({ lang = 'hi' }) {
           <div className="bg-white text-slate-900 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden relative">
             <div className="bg-emerald-600 text-white p-4 flex justify-between items-center">
               <h3 className="font-black text-lg">Scan Receipt QR</h3>
-              <button onClick={() => setShowQrScanner(false)} className="p-1 hover:bg-emerald-500 rounded-lg">
+              <button onClick={closeScannerSafely} className="p-1 hover:bg-emerald-500 rounded-lg">
                 <X className="w-6 h-6" />
               </button>
             </div>

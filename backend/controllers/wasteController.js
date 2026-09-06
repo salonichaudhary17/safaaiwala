@@ -77,14 +77,7 @@ exports.getLivePrices = async (req, res) => {
   try {
     const prices = await Price.find().populate('materialId');
     if (!prices || prices.length === 0) {
-      // Mock initial fallback prices if database is empty
-      const defaultPrices = [
-        { material: 'Copper Wire', category: 'e-waste', currentRate: 420, trend: 'up', city: 'Delhi' },
-        { material: 'Aluminium Scrap', category: 'metal', currentRate: 145, trend: 'stable', city: 'Delhi' },
-        { material: 'PET Plastic Bottles', category: 'plastic', currentRate: 28, trend: 'down', city: 'Delhi' },
-        { material: 'Motherboards (PCB)', category: 'e-waste', currentRate: 180, trend: 'up', city: 'Delhi' }
-      ];
-      return res.status(200).json(defaultPrices);
+      return res.status(200).json([]);
     }
     return res.status(200).json(prices);
   } catch (error) {
