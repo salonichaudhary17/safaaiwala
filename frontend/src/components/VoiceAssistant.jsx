@@ -99,10 +99,10 @@ export default function VoiceAssistant({ lang = 'hi', setLang, onNavigate, onTri
       cmd.includes('रेट') || cmd.includes('कीमत') || cmd.includes('दर') || cmd.includes('किंमत')
     ) {
       const response = lang === 'mr' 
-        ? 'थेट बाजार भाव उघडत आहे. तांब्याची तार ₹440 आणि सर्किट बोर्ड ₹180 प्रति किलो आहे.'
+        ? 'थेट बाजार भाव उघडत आहे. हे आहेत प्रमुख ई-कचरा दर: तांब्याची तार ₹440, सर्किट बोर्ड ₹183, लिथियम बॅटरी ₹225, रॅम ₹850, ई-वेस्ट मिश्रित ₹45, पीईटी प्लास्टिक ₹26, काच ₹85, इलेक्ट्रिक मोटर ₹195, एचडीपीई प्लास्टिक ₹34, आणि शिसे बॅटरी प्लेट्स ₹148 प्रति किलो आहेत.'
         : lang === 'en'
-        ? 'Showing live scrap prices. Copper wires are ₹440 and Circuit Boards are ₹180 per kg.'
-        : 'आज का लाइव भाव दिखाया जा रहा है। तांबा ₹440 और सर्किट बोर्ड ₹180 प्रति किलो है।';
+        ? 'Showing live scrap prices. Here are the rates for all 10 items: Copper wires are ₹440, Circuit Boards ₹183, Lithium Batteries ₹225, RAM Memory ₹850, Mixed E-waste ₹45, PET Plastic ₹26, CRT Glass ₹85, Electric Motors ₹195, HDPE Plastic ₹34, and Lead Battery plates ₹148 per kg.'
+        : 'लाइव भाव दिखाया जा रहा है। सभी 10 सामग्रियों की दरें इस प्रकार हैं: तांबे का तार ₹440, सर्किट बोर्ड ₹183, लिथियम बैटरी ₹225, रैम मेमोरी ₹850, मिश्रित ई-कचरा ₹45, पीईटी प्लास्टिक ₹26, CRT ग्लास ₹85, इलेक्ट्रिक मोटर ₹195, एचडीपीई प्लास्टिक ₹34, और लेड बैटरी प्लेट्स ₹148 प्रति किलो हैं।';
       speak(response);
       if (onNavigate) onNavigate('prices');
       return;

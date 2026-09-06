@@ -179,8 +179,25 @@ export default function LivePrices({ apiBaseUrl, lang = 'hi' }) {
     return () => clearInterval(interval);
   }, []);
 
+  const getCityMultiplier = (cityId) => {
+    switch (cityId) {
+      case 'mumbai': return 1.05;
+      case 'bengaluru': return 1.03;
+      case 'pune': return 1.02;
+      case 'chennai': return 0.98;
+      case 'ahmedabad': return 0.95;
+      default: return 1.0;
+    }
+  };
+
   const filteredPrices = Array.isArray(prices)
-    ? prices.filter(p => selectedCity === 'all' || !p.city || p.city === selectedCity)
+    ? prices.map(p => {
+        const multiplier = getCityMultiplier(selectedCity);
+        return {
+          ...p,
+          currentRate: Math.round(p.currentRate * multiplier)
+        };
+      })
     : INITIAL_PRICES;
 
   const getLocalizedName = (item) => {

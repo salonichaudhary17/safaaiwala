@@ -221,7 +221,11 @@ export default function RecyclerDashboard({ lang = 'hi' }) {
 
   useEffect(() => {
     if (!showQrScanner) return;
-    const scanner = new Html5QrcodeScanner('reader', { fps: 10, qrbox: { width: 250, height: 250 } }, false);
+    const scanner = new Html5QrcodeScanner(
+      'reader',
+      { fps: 10, qrbox: { width: 250, height: 250 }, supportedScanTypes: [0] },
+      false
+    );
     
     scanner.render((text) => {
       if (text.startsWith('SAFAAIWALA_')) {
