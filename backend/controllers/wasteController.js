@@ -16,14 +16,23 @@ exports.classifyWaste = async (req, res) => {
 
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
     const prompt = `Analyze this image of waste or electronic waste. 
+You must classify the dominant object into EXACTLY one of these categories:
+- "PCB"
+- "Lithium Battery"
+- "Copper Wire"
+- "CRT"
+- "Aluminium"
+- "Mixed Waste"
+
+If the image is unclear, blurry, or confidence is low, strictly output "Mixed Waste".
+
 Return ONLY a raw JSON object with no markdown formatting or code blocks.
 JSON Schema:
 {
-  "category": "e-waste" | "plastic" | "metal" | "paper" | "glass" | "hazardous",
-  "itemType": "string",
+  "category": "e-waste" | "plastic" | "metal" | "hazardous",
+  "itemType": "PCB" | "Lithium Battery" | "Copper Wire" | "CRT" | "Aluminium" | "Mixed Waste",
   "recyclability": "High" | "Medium" | "Low",
-  "estimatedValuePerKg": number,
-  "hazardLevel": "Low" | "Moderate" | "High",
+  "hazardLevel": "Low" | "Moderate" | "High" | "Critical",
   "disposalTips": "string"
 }`;
 
@@ -40,6 +49,21 @@ JSON Schema:
     const responseText = result.response.text().trim();
     const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
     const parsedData = JSON.parse(cleanJson);
+
+    // Strict price mapping as requested
+    const priceMap = {
+      'PCB': 180,
+      'Lithium Battery': 220,
+      'Copper Wire': 440,
+      'CRT': 85,
+      'Aluminium': 155,
+      'Mixed Waste': 28
+    };
+
+    parsedData.estimatedValuePerKg = priceMap[parsedData.itemType] || 28;
+    if (!priceMap[parsedData.itemType]) {
+      parsedData.itemType = 'Mixed Waste';
+    }
 
     return res.status(200).json(parsedData);
   } catch (error) {

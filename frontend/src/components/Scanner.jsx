@@ -173,7 +173,7 @@ export default function Scanner({ apiBaseUrl, onAnalysisComplete, lang = 'hi' })
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 4000);
-        const res = await fetch(`${apiBaseUrl}/api/v1/analyze`, {
+        const res = await fetch(`${apiBaseUrl}/api/waste/classify`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ imageBase64: base64Image, weightKg }),
