@@ -232,8 +232,8 @@ export default function Scanner({ apiBaseUrl, onAnalysisComplete, lang = 'hi' })
         else if (avg < 55) {
           darkCount++;
         }
-        // High specular shine (metal/aluminium)
-        else if (avg > 180 && Math.abs(r - g) < 25 && Math.abs(g - b) < 25) {
+        // Specular shine or greyish metal (Aluminium/Steel/Iron)
+        else if (Math.abs(r - g) < 30 && Math.abs(g - b) < 30 && avg > 90) {
           brightMetallicCount++;
         } else {
           plasticColorCount++;
@@ -247,7 +247,7 @@ export default function Scanner({ apiBaseUrl, onAnalysisComplete, lang = 'hi' })
         detectedKey = 'pcb';
       } else if (darkCount / sampleRatio > 0.25) {
         detectedKey = Math.random() > 0.5 ? 'battery' : 'crt';
-      } else if (brightMetallicCount / sampleRatio > 0.18) {
+      } else if (brightMetallicCount / sampleRatio > 0.35) {
         detectedKey = 'metal';
       } else {
         detectedKey = 'plastic';

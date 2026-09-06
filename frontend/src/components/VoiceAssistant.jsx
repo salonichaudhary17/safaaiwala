@@ -194,13 +194,6 @@ export default function VoiceAssistant({ lang = 'hi', setLang, onNavigate, onTri
           recognitionRef.current = rec;
         }
         
-        if (!navigator.onLine) {
-          setIsListening(false);
-          const offlineMsg = lang === 'mr' ? 'इंटरनेट कनेक्शन नाही. व्हॉइस असिस्टंट ऑफलाइन कार्य करत नाही.' : lang === 'en' ? 'No internet connection. Voice assistant requires internet for speech recognition.' : 'इंटरनेट कनेक्शन नहीं है। वॉयस असिस्टेंट को इंटरनेट की आवश्यकता है।';
-          speak(offlineMsg);
-          return;
-        }
-
         recognitionRef.current.lang = langCodeMap[lang] || 'hi-IN';
         recognitionRef.current.start();
         setIsListening(true);
