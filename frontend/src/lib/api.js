@@ -1,6 +1,6 @@
 import { enqueue, cacheGet, readCache } from "./offlineQueue";
 
-export const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:4000").replace(/\/+$/, "");
+export const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/+$/, "");
 
 async function getJson(path, cacheKey) {
   try {
