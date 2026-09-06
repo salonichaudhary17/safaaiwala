@@ -214,43 +214,58 @@ export default function Scanner({ apiBaseUrl, onAnalysisComplete, lang = 'hi' })
       let plasticColorCount = 0;
 
       // Sample every 8th pixel for performance
-      for (let i = 0; i < data.length; i += 32) {
+      let backgroundCount = 0;
+
+      for (let i = 0; i < data.length; i += 4) {
         const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
+        const g = data[i+1];
+        const b = data[i+2];
         const avg = (r + g + b) / 3;
 
-        // Copper detection: high red, moderate green, low blue
-        if (r > 130 && g > 60 && g < r * 0.85 && b < 70) {
+        // Ignore white/bright backgrounds
+        if (avg > 220 && Math.abs(r - g) < 20 && Math.abs(g - b) < 20) {
+          backgroundCount++;
+          continue;
+        }
+        // Ignore pitch black backgrounds
+        if (avg < 15) {
+          backgroundCount++;
+          continue;
+        }
+
+        // Copper: High red, moderate green, low blue
+        if (r > 120 && g > 50 && g < 150 && b < 90 && r > b + 40) {
           copperCount++;
         }
-        // PCB Green: green dominant over red and blue
-        else if (g > r + 25 && g > b + 25) {
+        // PCB Green: Green dominant
+        else if (g > r + 15 && g > b + 15) {
           greenCount++;
         }
-        // Dark/Battery/CRT glass
-        else if (avg < 55) {
-          darkCount++;
-        }
-        // Specular shine or greyish metal (Aluminium/Steel/Iron)
-        else if (Math.abs(r - g) < 30 && Math.abs(g - b) < 30 && avg > 90) {
+        // Specular shine or greyish metal (Aluminium/Steel/Iron) - tightly bound grey
+        else if (Math.abs(r - g) < 25 && Math.abs(g - b) < 25 && avg > 80 && avg < 220) {
           brightMetallicCount++;
+        }
+        // Dark objects (CRT/Batteries)
+        else if (avg < 65) {
+          darkCount++;
         } else {
           plasticColorCount++;
         }
       }
 
-      const sampleRatio = totalPixels / 8;
-      if (copperCount / sampleRatio > 0.08) {
-        detectedKey = 'copper';
-      } else if (greenCount / sampleRatio > 0.12) {
-        detectedKey = 'pcb';
-      } else if (darkCount / sampleRatio > 0.25) {
-        detectedKey = Math.random() > 0.5 ? 'battery' : 'crt';
-      } else if (brightMetallicCount / sampleRatio > 0.35) {
-        detectedKey = 'metal';
-      } else {
+      // Determine the most dominant material in the frame (ignoring background)
+      const maxCount = Math.max(copperCount, greenCount, brightMetallicCount, darkCount, plasticColorCount);
+      
+      if (maxCount === 0 || maxCount === plasticColorCount) {
         detectedKey = 'plastic';
+      } else if (maxCount === brightMetallicCount) {
+        detectedKey = 'metal';
+      } else if (maxCount === copperCount) {
+        detectedKey = 'copper';
+      } else if (maxCount === greenCount) {
+        detectedKey = 'pcb';
+      } else if (maxCount === darkCount) {
+        detectedKey = Math.random() > 0.5 ? 'battery' : 'crt';
       }
     } catch (e) {
       detectedKey = 'pcb';
